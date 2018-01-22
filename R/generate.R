@@ -1,4 +1,5 @@
-#' Generate resamples
+#' Generate resamples, permutations, or simulations based on
+#' `specify` and `hypothesize` inputs
 #' @param x a data frame that can be coerced into a \code{\link[dplyr]{tbl_df}}
 #' @param reps the number of resamples to generate
 #' @param type currently either \code{bootstrap}, \code{permute}, or \code{simulate}
@@ -8,8 +9,7 @@
 #' @importFrom dplyr group_by
 #' @export
 #' @examples
-#'
-#' #' # Permutation test for two binary variables
+#' # Permutation test for two binary variables
 #'   mtcars %>%
 #'     dplyr::mutate(am = factor(am), vs = factor(vs)) %>%
 #'     specify(am ~ vs, success = "1") %>%
@@ -20,7 +20,8 @@ generate <- function(x, reps = 1, type = "bootstrap", ...) {
 
   if (type == "permute" &&
       any(is.null(attr(x, "response")), is.null(attr(x, "explanatory")))) {
-    stop("Please `specify()` an explanatory and a response variable when permuting.")
+    stop(paste("Please `specify()` an explanatory and a response variable",
+         "when permuting."))
   }
   if (type == "simulate" &&
       attr(x, "null") != "point" &&
@@ -30,7 +31,8 @@ generate <- function(x, reps = 1, type = "bootstrap", ...) {
   if (type == "bootstrap" &&
       !(attr(attr(x, "params"), "names") %in% c("mu", "med", "sigma")) &&
       !is.null(attr(x, "null"))) {
-    stop("Bootstrapping is inappropriate in this setting. Consider using `type = permute` or `type = simulate`.")
+    stop(paste("Bootstrapping is inappropriate in this setting.",
+          "Consider using `type = permute` or `type = simulate`."))
   }
 
   if (type == "bootstrap") {
@@ -42,7 +44,9 @@ generate <- function(x, reps = 1, type = "bootstrap", ...) {
   if (type == "simulate") {
     return(simulate(x, reps, ...))
   }
-  x
+  if (!(type %in% c("bootstrap", "permute", "simulate")))
+    stop(paste("Choose one of the available options for `type`:",
+               '`"bootstrap"`, `"permute"`, or `"simulate"`'))
 }
 
 bootstrap <- function(x, reps = 1, ...) {
@@ -58,13 +62,15 @@ bootstrap <- function(x, reps = 1, ...) {
     # Similarly for median
     if(attr(attr(x, "params"), "names") == "med"){
       col <- as.character(attr(x, "response"))
-      x[[col]] <- x[[col]] - stats::median(x[[col]], na.rm = TRUE) + attr(x, "params")
+      x[[col]] <- x[[col]] - 
+        stats::median(x[[col]], na.rm = TRUE) + attr(x, "params")
     }
 
     # Similarly for sd
     if(attr(attr(x, "params"), "names") == "sigma"){
       col <- as.character(attr(x, "response"))
-      x[[col]] <- x[[col]] - stats::sd(x[[col]], na.rm = TRUE) + attr(x, "params")
+      x[[col]] <- x[[col]] - 
+        stats::sd(x[[col]], na.rm = TRUE) + attr(x, "params")
     }
   }
 
@@ -97,7 +103,7 @@ permute_once <- function(x, ...) {
   if (attr(x, "null") == "independence") {
     y <- pull(x, !! attr(x, "response"))
 
-    y_prime <- sample(y, size = length(y), replace = TRUE)
+    y_prime <- sample(y, size = length(y), replace = FALSE)
     x[as.character(attr(x, "response"))] <- y_prime
     return(x)
   }
@@ -109,7 +115,7 @@ permute_once <- function(x, ...) {
 #' @importFrom rlang :=
 
 simulate <- function(x, reps = 1, ...) {
-  fct_levels <- levels(dplyr::pull(x, !! attr(x, "response")))
+  fct_levels <- as.character(unique(dplyr::pull(x, !! attr(x, "response"))))
 
   col_simmed <- unlist(replicate(reps, sample(fct_levels,
                                               size = nrow(x),
@@ -133,38 +139,11 @@ simulate <- function(x, reps = 1, ...) {
 
 format_params <- function(x) {
   par_levels <- get_par_levels(x)
-  fct_levels <- levels(dplyr::pull(x, !! attr(x, "response")))
+  fct_levels <- as.character(unique(dplyr::pull(x, !! attr(x, "response"))))
   return(attr(x, "params")[match(fct_levels, par_levels)])
 }
 
 get_par_levels <- function(x) {
   par_names <- names(attr(x, "params"))
   return(gsub("^.\\.", "", par_names))
-}
-
-#' @importFrom dplyr as_tibble pull data_frame inner_join
-
-# Modified oilabs::rep_sample_n() with attr added
-rep_sample_n <- function(tbl, size, replace = FALSE, reps = 1, prob = NULL) {
-  n <- nrow(tbl)
-
-  # assign non-uniform probabilities
-  # there should be a better way!!
-  # prob needs to be nrow(tbl) -- not just number of factor levels
-  if (!is.null(prob)) {
-    if (length(prob) != n) stop("The argument prob must have length nrow(tbl).")
-    df_lkup <- dplyr::data_frame(vals = levels(dplyr::pull(tbl, 1)))
-    names(df_lkup) <- names(tbl)
-    df_lkup$probs <- prob
-    tbl_wgt <- dplyr::inner_join(tbl, df_lkup)
-    prob <- tbl_wgt$probs
-  }
-
-  i <- unlist(replicate(reps, sample.int(n, size, replace = replace, prob = prob),
-                        simplify = FALSE))
-  rep_tbl <- cbind(replicate = rep(1:reps, rep(size, reps)),
-                   tbl[i, ])
-  rep_tbl <- dplyr::as_tibble(rep_tbl)
-  names(rep_tbl)[-1] <- names(tbl)
-  dplyr::group_by(rep_tbl, replicate)
 }

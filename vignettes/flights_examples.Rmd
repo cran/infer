@@ -1,14 +1,16 @@
 ---
 title: "Randomization Examples using `nycflights13` `flights` data"
 author: "Chester Ismay and Andrew bray"
-date: "`r Sys.Date()`"
+date: "2018-01-05"
 output: 
   rmarkdown::html_vignette:
     df_print: kable
 vignette: |
   %\VignetteIndexEntry{flights example}
-  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r include=FALSE}
@@ -86,7 +88,7 @@ null %>%
   summarize(p_value = mean(stat < x_tilde) * 2)
 ```
 
-### One categorical (2 level) variable
+### One categorical (one proportion)
 
 ```{r}
 p_hat <- fli_small %>%
@@ -94,15 +96,27 @@ p_hat <- fli_small %>%
   pull()
 null <- fli_small %>%
   specify(response = day_hour, success = "morning") %>%
-  hypothesize(null = "point", p = .5) %>% 
-  generate(reps = 1000, type = "simulate") %>% 
+  hypothesize(null = "point", p = .5) %>%
+  generate(reps = 1000, type = "simulate") %>%
   calculate(stat = "prop")
 ggplot(null, aes(x = stat)) +
-  geom_density() +
+  geom_bar() +
   geom_vline(xintercept = p_hat, color = "red")
 null %>%
   summarize(p_value = mean(stat < p_hat) * 2)
 ```
+
+Logical variables will be coerced to factors:
+
+```{r}
+null <- fli_small %>%
+  mutate(day_hour_logical = (day_hour == "morning")) %>%
+  specify(response = day_hour_logical, success = "TRUE") %>%
+  hypothesize(null = "point", p = .5) %>%
+  generate(reps = 1000, type = "simulate") %>%
+  calculate(stat = "prop")
+```
+
 
 ### Two categorical (2 level) variables
 
@@ -130,7 +144,8 @@ null %>%
 Chisq_hat <- chisq.test(table(fli_small$origin))$stat
 null <- fli_small %>%
   specify(response = origin) %>%
-  hypothesize(null = "point", p = c("EWR" = .33, "JFK" = .33, "LGA" = .34)) %>% 
+  hypothesize(null = "point", 
+              p = c("EWR" = .33, "JFK" = .33, "LGA" = .34)) %>% 
   generate(reps = 1000, type = "simulate") %>% 
   calculate(stat = "Chisq")
 ggplot(null, aes(x = stat)) +
@@ -165,7 +180,8 @@ d_hat <- fli_small %>%
   summarize(diff(mean_stat)) %>% 
   pull()
 null <- fli_small %>%
-  specify(dep_delay ~ season) %>% # alt: response = dep_delay, explanatory = season
+  specify(dep_delay ~ season) %>% # alt: response = dep_delay, 
+  # explanatory = season
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
   calculate(stat = "diff in means", order = c("summer", "winter"))
@@ -185,7 +201,8 @@ d_hat <- fli_small %>%
   summarize(diff(median_stat)) %>% 
   pull()
 null <- fli_small %>%
-  specify(dep_delay ~ season) %>% # alt: response = dep_delay, explanatory = season
+  specify(dep_delay ~ season) %>% # alt: response = dep_delay, 
+  # explanatory = season
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
   calculate(stat = "diff in medians", order = c("summer", "winter"))
@@ -199,9 +216,12 @@ null %>%
 ### One numerical, one categorical (>2 levels) -  ANOVA
 
 ```{r}
-F_hat <- anova(aov(formula = arr_delay ~ origin, data = fli_small))$`F value`[1]
+F_hat <- anova(
+               aov(formula = arr_delay ~ origin, data = fli_small)
+               )$`F value`[1]
 null <- fli_small %>%
-   specify(arr_delay ~ origin) %>% # alt: response = arr_delay, explanatory = origin
+   specify(arr_delay ~ origin) %>% # alt: response = arr_delay, 
+   # explanatory = origin
    hypothesize(null = "independence") %>%
    generate(reps = 1000, type = "permute") %>%
    calculate(stat = "F")
@@ -221,7 +241,8 @@ slope_hat <- lm(arr_delay ~ dep_delay, data = fli_small) %>%
   select(estimate) %>% 
   pull()
 null <- fli_small %>%
-   specify(arr_delay ~ dep_delay) %>% # alt: response = arr_delay, explanatory = dep_delay
+   specify(arr_delay ~ dep_delay) %>% # alt: response = arr_delay, 
+   # explanatory = dep_delay
    hypothesize(null = "independence") %>%
    generate(reps = 1000, type = "permute") %>%
    calculate(stat = "slope")
@@ -237,46 +258,31 @@ null %>%
 ### One numerical (one mean)
 
 ```{r}
-x_bar <- fli_small %>% 
-   summarize(mean(arr_delay)) %>% 
+x_bar <- fli_small %>%
+   summarize(mean(arr_delay)) %>%
    pull()
 boot <- fli_small %>%
    specify(response = arr_delay) %>%
    generate(reps = 1000, type = "bootstrap") %>%
-   calculate(stat = "mean") %>% 
+   calculate(stat = "mean") %>%
    pull()
-c(lower = x_bar - 2 * sd(boot), 
+c(lower = x_bar - 2 * sd(boot),
   upper = x_bar + 2 * sd(boot))
-```
-
-### One numerical (one median)
-
-```{r}
-x_tilde <- fli_small %>% 
-   summarize(median(arr_delay)) %>% 
-   pull()
-boot <- fli_small %>%
-   specify(response = arr_delay) %>%
-   generate(reps = 1000, type = "bootstrap") %>%
-   calculate(stat = "median") %>% 
-   pull()
-c(lower = x_tilde - 2 * sd(boot), 
-  upper = x_tilde + 2 * sd(boot))
 ```
 
 ### One categorical (one proportion)
 
 ```{r}
 p_hat <- fli_small %>%
-  summarize(mean(day_hour == "morning")) %>%
-  pull()
+ summarize(mean(day_hour == "morning")) %>%
+ pull()
 boot <- fli_small %>%
-  specify(response = day_hour, success = "morning") %>%
-  generate(reps = 1000, type = "bootstrap") %>% 
-  calculate(stat = "prop") %>%
-  pull()
-c(lower = p_hat - 2 * sd(boot), 
-  upper = p_hat + 2 * sd(boot))
+ specify(response = day_hour, success = "morning") %>%
+ generate(reps = 1000, type = "bootstrap") %>%
+ calculate(stat = "prop") %>%
+ pull()
+c(lower = p_hat - 2 * sd(boot),
+ upper = p_hat + 2 * sd(boot))
 ```
 
 ### One numerical variable, one categorical (2 levels) (diff in means)
@@ -292,8 +298,8 @@ boot <- fli_small %>%
    generate(reps = 1000, type = "bootstrap") %>%
    calculate(stat = "diff in means", order = c("summer", "winter")) %>% 
    pull()
-c(lower = p_hat - 2 * sd(boot), 
-  upper = p_hat + 2 * sd(boot))
+c(lower = d_hat - 2 * sd(boot), 
+  upper = d_hat + 2 * sd(boot))
 ```
 
 ### Two categorical variables (diff in proportions)
