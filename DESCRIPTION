@@ -1,7 +1,7 @@
 Package: infer
 Type: Package
 Title: Tidy Statistical Inference
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: c(
     person("Andrew", "Bray", email = "abray@reed.edu", role = c("aut", "cre")),
     person("Chester", "Ismay", email = "chester.ismay@gmail.com", role = "aut"),
@@ -12,7 +12,8 @@ Authors@R: c(
     person("Johanna", "Hardin", email = "Jo.Hardin@pomona.edu", role = "ctb"),
     person("Albert", "Kim", email = "albert.ys.kim@gmail.com", role = "ctb"),
     person("Neal", "Fultz", email = "nfultz@gmail.com", role = "ctb"),
-    person("Doug", "Friedman", email = "doug.nhp@gmail.com", role = "ctb"))
+    person("Doug", "Friedman", email = "doug.nhp@gmail.com", role = "ctb"),
+    person("Richie", "Cotton", email = "richie@datacamp.com", role = "ctb"))
 Description: The objective of this package is to perform inference using an expressive statistical grammar that coheres with the tidy design framework. 
 License: CC0
 Encoding: UTF-8
@@ -27,7 +28,7 @@ BugReports: https://github.com/andrewpbray/infer/issues
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2018-05-14 23:14:10 UTC; abray
+Packaged: 2018-07-11 00:20:36 UTC; chester
 Author: Andrew Bray [aut, cre],
   Chester Ismay [aut],
   Ben Baumer [aut],
@@ -37,7 +38,8 @@ Author: Andrew Bray [aut, cre],
   Johanna Hardin [ctb],
   Albert Kim [ctb],
   Neal Fultz [ctb],
-  Doug Friedman [ctb]
+  Doug Friedman [ctb],
+  Richie Cotton [ctb]
 Maintainer: Andrew Bray <abray@reed.edu>
 Repository: CRAN
-Date/Publication: 2018-05-15 03:37:47 UTC
+Date/Publication: 2018-07-11 05:00:03 UTC
