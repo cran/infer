@@ -54,7 +54,8 @@ t_test <- function(data, formula, #response = NULL, explanatory = NULL,
       stats::t.test(formula = formula, data = .,
                     alternative = alternative,
                     mu = mu, 
-                    conf.level = conf_level, ...) %>%
+                    conf.level = conf_level, 
+                    ...) %>%
       broom::glance()
   } else {
     # One sample case
@@ -64,7 +65,8 @@ t_test <- function(data, formula, #response = NULL, explanatory = NULL,
     prelim <- stats::t.test(x = data[[as.character(f_lhs(formula))]],
                   alternative = alternative,
                   mu = mu, 
-                  conf.level = conf_level, ...) %>% 
+                  conf.level = conf_level, 
+                  ...) %>% 
       broom::glance()
   }
   
@@ -107,8 +109,8 @@ t_test <- function(data, formula, #response = NULL, explanatory = NULL,
 
 t_stat <- function(data, formula, ...){
   data %>% 
-    specify(formula = formula) %>% 
-    calculate(stat = "t", ...)
+    t_test(formula = formula, ...) %>% 
+    dplyr::select(statistic)
 }
 
 #'
@@ -129,9 +131,10 @@ chisq_test <- function(data, formula, #response = NULL, explanatory = NULL,
                        ...){
 
   if(is.null(f_rhs(formula)))
-    stop(paste("`chisq_test()` currently only has functionality for",
-               "Chi-Square Test of Independence, not for Chi-Square",
-               "Goodness of Fit."))
+    stop_glue(
+      "`chisq_test()` currently only has functionality for ",
+      "Chi-Square Test of Independence, not for Chi-Square Goodness of Fit."
+    )
   ## Only currently working with formula interface
   explanatory_var <- f_rhs(formula)
   response_var <- f_lhs(formula)
@@ -152,10 +155,11 @@ chisq_test <- function(data, formula, #response = NULL, explanatory = NULL,
 chisq_stat <- function(data, formula, ...){
   
   if(is.null(f_rhs(formula))){
-    stop(paste("`chisq_stat()` currently only has functionality for",
-               "Chi-Square Test of Independence, not for Chi-Square",
-               "Goodness of Fit. Use `specify() %>% hypothesize()",
-               "%>% calculate()` instead."))
+    stop_glue(
+      "`chisq_stat()` currently only has functionality for ",
+      "Chi-Square Test of Independence, not for Chi-Square Goodness of Fit. ",
+      "Use `specify() %>% hypothesize() %>% calculate()` instead."
+    )
   } else {
     data %>%
       specify(formula = formula, ...) %>%
@@ -168,6 +172,5 @@ check_conf_level <- function(conf_level){
   if(class(conf_level) != "numeric" |
      conf_level < 0 |
      conf_level > 1)
-    stop("The `conf_level` argument must be a number between 0 and 1.",
-         call. = FALSE)
+    stop_glue("The `conf_level` argument must be a number between 0 and 1.")
 }

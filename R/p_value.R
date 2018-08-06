@@ -25,7 +25,7 @@
 
 p_value <- function(x, obs_stat, direction){
   
-  assertive::assert_is_data.frame(x)
+  check_type(x, is.data.frame)
   obs_stat <- check_obs_stat(obs_stat)
   check_direction(direction)
   
@@ -39,9 +39,8 @@ p_value <- function(x, obs_stat, direction){
   ## Theoretical-based p-value
   # Could be more specific
   # else if(is.null(attr(x, "theory_type")) || is.null(attr(x, "distr_param")))
-  #   stop(paste("Attributes have not been set appropriately.",
-  #              "Check your {infer} pipeline again."
-  #   ))
+  #   stop_glue("Attributes have not been set appropriately. ",
+  #             "Check your {{infer}} pipeline again.")
   
   # if(!("stat" %in% names(x))){
   #    # Theoretical distribution

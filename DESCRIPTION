@@ -1,7 +1,7 @@
 Package: infer
 Type: Package
 Title: Tidy Statistical Inference
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: c(
     person("Andrew", "Bray", email = "abray@reed.edu", role = c("aut", "cre")),
     person("Chester", "Ismay", email = "chester.ismay@gmail.com", role = "aut"),
@@ -13,22 +13,23 @@ Authors@R: c(
     person("Albert", "Kim", email = "albert.ys.kim@gmail.com", role = "ctb"),
     person("Neal", "Fultz", email = "nfultz@gmail.com", role = "ctb"),
     person("Doug", "Friedman", email = "doug.nhp@gmail.com", role = "ctb"),
-    person("Richie", "Cotton", email = "richie@datacamp.com", role = "ctb"))
+    person("Richie", "Cotton", email = "richie@datacamp.com", role = "ctb"),
+    person("Evgeni", "Chasnovski", email = "evgeni.chasnovski@gmail.com", role = "ctb"))
 Description: The objective of this package is to perform inference using an expressive statistical grammar that coheres with the tidy design framework. 
 License: CC0
 Encoding: UTF-8
 LazyData: true
-Imports: assertive, dplyr (>= 0.7.0), methods, tibble, rlang (>=
-        0.2.0), ggplot2, magrittr
+Imports: dplyr (>= 0.7.0), methods, tibble, rlang (>= 0.2.0), ggplot2,
+        magrittr, glue
 Depends: R (>= 3.1.2)
 Suggests: broom, devtools (>= 1.12.0), knitr, rmarkdown, nycflights13,
         stringr, testthat, covr
-URL: https://github.com/andrewpbray/infer
-BugReports: https://github.com/andrewpbray/infer/issues
-RoxygenNote: 6.0.1
+URL: https://github.com/tidymodels/infer
+BugReports: https://github.com/tidymodels/infer/issues
+RoxygenNote: 6.0.1.9000
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2018-07-11 00:20:36 UTC; chester
+Packaged: 2018-07-27 17:04:10 UTC; abray
 Author: Andrew Bray [aut, cre],
   Chester Ismay [aut],
   Ben Baumer [aut],
@@ -39,7 +40,8 @@ Author: Andrew Bray [aut, cre],
   Albert Kim [ctb],
   Neal Fultz [ctb],
   Doug Friedman [ctb],
-  Richie Cotton [ctb]
+  Richie Cotton [ctb],
+  Evgeni Chasnovski [ctb]
 Maintainer: Andrew Bray <abray@reed.edu>
 Repository: CRAN
-Date/Publication: 2018-07-11 05:00:03 UTC
+Date/Publication: 2018-08-06 22:20:08 UTC
