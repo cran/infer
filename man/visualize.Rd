@@ -2,91 +2,112 @@
 % Please edit documentation in R/visualize.R
 \name{visualize}
 \alias{visualize}
-\title{Visualize the distribution of the simulation-based inferential statistics
-or the theoretical distribution (or both!)}
+\alias{visualise}
+\title{Visualize statistical inference}
 \usage{
-visualize(data, bins = 15, method = "simulation", dens_color = "black",
-  obs_stat = NULL, obs_stat_color = "red2", pvalue_fill = "pink",
-  direction = NULL, endpoints = NULL,
+visualize(data, bins = 15, method = "simulation",
+  dens_color = "black", obs_stat = NULL, obs_stat_color = "red2",
+  pvalue_fill = "pink", direction = NULL, endpoints = NULL,
+  endpoints_color = "mediumaquamarine", ci_fill = "turquoise", ...)
+
+visualise(data, bins = 15, method = "simulation",
+  dens_color = "black", obs_stat = NULL, obs_stat_color = "red2",
+  pvalue_fill = "pink", direction = NULL, endpoints = NULL,
   endpoints_color = "mediumaquamarine", ci_fill = "turquoise", ...)
 }
 \arguments{
-\item{data}{the output from \code{\link{calculate}}}
+\item{data}{The output from \code{\link[=calculate]{calculate()}}.}
 
-\item{bins}{the number of bins in the histogram}
+\item{bins}{The number of bins in the histogram.}
 
-\item{method}{a string giving the method to display. Options are 
-"simulation", "theoretical", or "both"
-with "both" corresponding to "simulation" and "theoretical"}
+\item{method}{A string giving the method to display. Options are
+\code{"simulation"}, \code{"theoretical"}, or \code{"both"} with \code{"both"} corresponding to
+\code{"simulation"} and \code{"theoretical"}.}
 
-\item{dens_color}{a character or hex string specifying the color of the
-theoretical density curve}
+\item{dens_color}{A character or hex string specifying the color of the
+theoretical density curve.}
 
-\item{obs_stat}{a numeric value or 1x1 data frame corresponding to what
-the observed statistic is}
+\item{obs_stat}{A numeric value or 1x1 data frame corresponding to what the
+observed statistic is. \strong{Deprecated (see Details)}.}
 
-\item{obs_stat_color}{a character or hex string specifying the color of
-the observed statistic as a vertical line on the plot}
+\item{obs_stat_color}{A character or hex string specifying the color of the
+observed statistic as a vertical line on the plot. \strong{Deprecated (see
+Details)}.}
 
-\item{pvalue_fill}{a character or hex string specifying the color to shade
-the pvalue. In previous versions of the package this was the \code{shade_color} 
-argument}
+\item{pvalue_fill}{A character or hex string specifying the color to shade
+the p-value. In previous versions of the package this was the \code{shade_color}
+argument. \strong{Deprecated (see Details)}.}
 
-\item{direction}{a string specifying in which direction the shading 
-should occur. Options are "less", "greater", or "two_sided" for p-value.
-Can also give "left", "right", or "both" for p-value. For confidence 
-intervals, use "between".
-and give the endpoint values in \code{endpoints}}
+\item{direction}{A string specifying in which direction the shading should
+occur. Options are \code{"less"}, \code{"greater"}, or \code{"two_sided"} for p-value. Can
+also give \code{"left"}, \code{"right"}, or \code{"both"} for p-value. For confidence
+intervals, use \code{"between"} and give the endpoint values in \code{endpoints}.
+\strong{Deprecated (see Details)}.}
 
-\item{endpoints}{a 2 element vector or a 1 x 2 data frame containing the
+\item{endpoints}{A 2 element vector or a 1 x 2 data frame containing the
 lower and upper values to be plotted. Most useful for visualizing
-conference intervals.}
+conference intervals. \strong{Deprecated (see Details)}.}
 
-\item{endpoints_color}{a character or hex string specifying the color of
-the observed statistic as a vertical line on the plot}
+\item{endpoints_color}{A character or hex string specifying the color of the
+observed statistic as a vertical line on the plot. \strong{Deprecated (see
+Details)}.}
 
-\item{ci_fill}{a character or hex string specifying the color to shade
-the confidence interval}
+\item{ci_fill}{A character or hex string specifying the color to shade the
+confidence interval. \strong{Deprecated (see Details)}.}
 
-\item{...}{other arguments passed along to ggplot2}
+\item{...}{Other arguments passed along to \{ggplot2\} functions.}
 }
 \value{
 A ggplot object showing the simulation-based distribution as a
- histogram or bar graph. Also used to show the theoretical curves.
+histogram or bar graph. Also used to show the theoretical curves.
 }
 \description{
-Visualize the distribution of the simulation-based inferential statistics
-or the theoretical distribution (or both!)
+Visualize the distribution of the simulation-based inferential statistics or
+the theoretical distribution (or both!).
+}
+\details{
+In order to make visualization workflow more straightforward and
+explicit \code{visualize()} now only should be used to plot statistics directly.
+That is why arguments not related to this task are deprecated and will be
+removed in a future release of \{infer\}.
+
+To add to plot information related to p-value use \code{\link[=shade_p_value]{shade_p_value()}}. To add
+to plot information related to confidence interval use
+\code{\link[=shade_confidence_interval]{shade_confidence_interval()}}.
 }
 \examples{
-# Permutations to create a simulation-based null distribution for 
+# Permutations to create a simulation-based null distribution for
 # one numerical response and one categorical predictor
 # using t statistic
 mtcars \%>\%
-    dplyr::mutate(am = factor(am)) \%>\%
-    specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
-    hypothesize(null = "independence") \%>\%
-    generate(reps = 100, type = "permute") \%>\%
-    calculate(stat = "t", order = c("1", "0")) \%>\%
-    visualize(method = "simulation") #default method
+  dplyr::mutate(am = factor(am)) \%>\%
+  specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
+  hypothesize(null = "independence") \%>\%
+  generate(reps = 100, type = "permute") \%>\%
+  calculate(stat = "t", order = c("1", "0")) \%>\%
+  visualize(method = "simulation") #default method
 
-# Theoretical t distribution for 
+# Theoretical t distribution for
 # one numerical response and one categorical predictor
 # using t statistic
 mtcars \%>\%
-    dplyr::mutate(am = factor(am)) \%>\%
-    specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
-    hypothesize(null = "independence") \%>\%
-    # generate() is not needed since we are not doing simulation
-    calculate(stat = "t", order = c("1", "0")) \%>\%
-    visualize(method = "theoretical")
+  dplyr::mutate(am = factor(am)) \%>\%
+  specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
+  hypothesize(null = "independence") \%>\%
+  # generate() is not needed since we are not doing simulation
+  calculate(stat = "t", order = c("1", "0")) \%>\%
+  visualize(method = "theoretical")
 
 # Overlay theoretical distribution on top of randomized t-statistics
 mtcars \%>\%
-    dplyr::mutate(am = factor(am)) \%>\%
-    specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
-    hypothesize(null = "independence") \%>\%
-    generate(reps = 100, type = "permute") \%>\%
-    calculate(stat = "t", order = c("1", "0")) \%>\%
-    visualize(method = "both")
+  dplyr::mutate(am = factor(am)) \%>\%
+  specify(mpg ~ am) \%>\% # alt: response = mpg, explanatory = am
+  hypothesize(null = "independence") \%>\%
+  generate(reps = 100, type = "permute") \%>\%
+  calculate(stat = "t", order = c("1", "0")) \%>\%
+  visualize(method = "both")
+
+}
+\seealso{
+\code{\link[=shade_p_value]{shade_p_value()}}, \code{\link[=shade_confidence_interval]{shade_confidence_interval()}}.
 }
