@@ -1,4 +1,4 @@
-c0fc4f1a17099d38aeb54abc88ddbad3 *DESCRIPTION
+da63f52d9afcf00038af63eae95273f6 *DESCRIPTION
 9760e135677deedabb5193d7baaf4008 *NAMESPACE
 aff00933c8dc386a8e0ea952f90faf7a *R/calculate.R
 e231485c30128f09eeb76b6aaf535256 *R/deprecated.R
@@ -49,7 +49,7 @@ dd1a2c02ccea11a4dbb781fc03a12a2a *man/pipe.Rd
 68d3d662430c863f1f7dcbca4added9c *man/t_stat.Rd
 cff6d1ffb291e53f9075d0d89eff39a3 *man/t_test.Rd
 9384bfe5f25f9aa88d9a0be7b99117ba *man/visualize.Rd
-8a35b1aaea5bf87eb1b14ac6be96eebc *tests/testthat.R
+ad6ad85b658dae7d45d3ca8efd9d9f9c *tests/testthat.R
 92369884bc6de36016dbf5c06c94fec3 *tests/testthat/helper-data.R
 27ce501294ef98cc445cdadffe67afd5 *tests/testthat/test-aliases.R
 fad818a0c81d8d62c70d07eecc542d22 *tests/testthat/test-calculate.R
