@@ -5,13 +5,17 @@
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
 #' @param reps The number of resamples to generate.
-#' @param type Currently either `bootstrap`, `permute`, or `simulate`.
+#' @param type Currently either `bootstrap`, `permute`, or `simulate` as defined
+#' in the `GENERATION_TYPES` vector.
 #' @param ... Currently ignored.
 #'
 #' @return A tibble containing `rep` generated datasets, indicated by the
 #'   `replicate` column.
 #'
 #' @examples
+#' # Different `type` options
+#' GENERATION_TYPES   
+#'  
 #' # Permutation test for two binary variables
 #' mtcars %>%
 #'   dplyr::mutate(am = factor(am), vs = factor(vs)) %>%
@@ -42,6 +46,7 @@ generate <- function(x, reps = 1, type = NULL, ...) {
     simulate = simulate(x, reps, ...)
   )
 }
+
 
 #' @rdname generate
 #' @export
@@ -140,9 +145,7 @@ bootstrap <- function(x, reps = 1, ...) {
   result <- rep_sample_n(x, size = nrow(x), replace = TRUE, reps = reps)
   result <- copy_attrs(to = result, from = x)
 
-  class(result) <- append("infer", class(result))
-
-  result
+  append_infer_class(result)
 }
 
 #' @importFrom dplyr bind_rows group_by
@@ -154,9 +157,7 @@ permute <- function(x, reps = 1, ...) {
 
   df_out <- copy_attrs(to = df_out, from = x)
 
-  class(df_out) <- append("infer", class(df_out))
-
-  df_out
+  append_infer_class(df_out)
 }
 
 permute_once <- function(x, ...) {
@@ -190,7 +191,7 @@ simulate <- function(x, reps = 1, ...) {
 
   rep_tbl <- copy_attrs(to = rep_tbl, from = x)
 
-  class(rep_tbl) <- append("infer", class(rep_tbl))
-
-  dplyr::group_by(rep_tbl, replicate)
+  rep_tbl <- dplyr::group_by(rep_tbl, replicate)
+  
+  append_infer_class(rep_tbl)
 }

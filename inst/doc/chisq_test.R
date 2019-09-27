@@ -29,11 +29,6 @@ obs_chisq <- fli_small %>%
 
 ## ------------------------------------------------------------------------
 obs_chisq <- fli_small %>% 
-  chisq_test(formula = origin ~ season) %>% 
-  dplyr::select(statistic)
-
-## ------------------------------------------------------------------------
-obs_chisq <- fli_small %>% 
   chisq_stat(formula = origin ~ season)
 
 ## ------------------------------------------------------------------------
@@ -68,4 +63,43 @@ visualize(chisq_null_perm, method = "both") +
 fli_small %>% 
   chisq_test(formula = origin ~ season) %>% 
   dplyr::pull(p_value)
+
+## ------------------------------------------------------------------------
+obs_chisq <- fli_small %>%
+  specify(response = origin) %>%
+  hypothesize(null = "point", 
+              p = c("EWR" = .33, "JFK" = .33, "LGA" = .34)) %>% 
+  calculate(stat = "Chisq")
+
+## ------------------------------------------------------------------------
+chisq_null_perm <- fli_small %>%
+  specify(response = origin) %>%
+  hypothesize(null = "point", 
+              p = c("EWR" = .33, "JFK" = .33, "LGA" = .34)) %>% 
+  generate(reps = 1000, type = "simulate") %>% 
+  calculate(stat = "Chisq")
+
+visualize(chisq_null_perm) +
+  shade_p_value(obs_stat = obs_chisq, direction = "greater")
+
+## ------------------------------------------------------------------------
+chisq_null_perm %>% 
+  get_p_value(obs_stat = obs_chisq, direction = "greater")
+
+## ------------------------------------------------------------------------
+chisq_null_theor <- fli_small %>%
+  specify(response = origin) %>%
+  hypothesize(null = "point", 
+              p = c("EWR" = .33, "JFK" = .33, "LGA" = .34)) %>% 
+  calculate(stat = "Chisq")
+
+visualize(chisq_null_theor, method = "theoretical") +
+  shade_p_value(obs_stat = obs_chisq, direction = "right")
+
+## ------------------------------------------------------------------------
+visualize(chisq_null_perm, method = "both") +
+  shade_p_value(obs_stat = obs_chisq, direction = "right")
+
+## ------------------------------------------------------------------------
+#TBA
 
