@@ -41,9 +41,8 @@ null_distn %>%
   get_p_value(obs_stat = x_bar, direction = "two_sided")
 
 ## ------------------------------------------------------------------------
-( t_bar <- fli_small %>%
-  specify(response = dep_delay) %>%
-  calculate(stat = "t") )
+t_bar <- fli_small %>%
+  t_stat(response = dep_delay, mu = 8)
 
 ## ------------------------------------------------------------------------
 null_distn <- fli_small %>%
