@@ -125,6 +125,27 @@ null_distn <- gss %>%
   generate(reps = 1000) %>%
   calculate(stat = "prop")
 
+## -----------------------------------------------------------------------------
+p_hat <- gss %>%
+  specify(response = sex, success = "female") %>%
+  hypothesize(null = "point", p = .5) %>%
+  calculate(stat = "z")
+
+## -----------------------------------------------------------------------------
+null_distn <- gss %>%
+  specify(response = sex, success = "female") %>%
+  hypothesize(null = "point", p = .5) %>%
+  generate(reps = 1000, type = "simulate") %>%
+  calculate(stat = "z")
+
+## -----------------------------------------------------------------------------
+visualize(null_distn) +
+  shade_p_value(obs_stat = p_hat, direction = "two-sided")
+
+## -----------------------------------------------------------------------------
+null_distn %>%
+  get_p_value(obs_stat = p_hat, direction = "two-sided")
+
 ## ----prop_test_1_grp----------------------------------------------------------
 prop_test(gss,
           college ~ NULL,

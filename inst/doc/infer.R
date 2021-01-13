@@ -23,11 +23,11 @@ gss %>%
   class()
 
 ## ----specify-two, warning = FALSE, message = FALSE----------------------------
-# with the named arguments
+# as a formula
 gss %>%
   specify(age ~ partyid)
 
-# as a formula
+# with the named arguments
 gss %>%
   specify(response = age, explanatory = partyid)
 
