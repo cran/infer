@@ -1,7 +1,7 @@
 Type: Package
 Package: infer
 Title: Tidy Statistical Inference
-Version: 0.5.4
+Version: 1.0.0
 Authors@R: 
     c(person(given = "Andrew",
              family = "Bray",
@@ -17,6 +17,11 @@ Authors@R:
              role = "aut",
              email = "evgeni.chasnovski@gmail.com",
              comment = c(ORCID = "0000-0002-1617-4019")),
+      person(given = "Simon",
+             family = "Couch",
+             role = "aut",
+             email = "scouch2@jhu.edu",
+             comment = c(ORCID = "0000-0001-5676-5107")),
       person(given = "Ben",
              family = "Baumer",
              role = "aut",
@@ -27,10 +32,6 @@ Authors@R:
              role = "aut",
              email = "mine@stat.duke.edu",
              comment = c(ORCID = "0000-0001-6452-2420")),
-      person(given = "Simon",
-             family = "Couch",
-             role = "ctb",
-             email = "simonpatrickcouch@gmail.com"),
       person(given = "Ted",
              family = "Laderas",
              role = "ctb",
@@ -74,21 +75,22 @@ URL: https://github.com/tidymodels/infer, https://infer.tidymodels.org/
 BugReports: https://github.com/tidymodels/infer/issues
 Depends: R (>= 3.5.0)
 Imports: dplyr (>= 0.7.0), ggplot2, glue (>= 1.3.0), grDevices,
-        magrittr, methods, purrr, rlang (>= 0.2.0), tibble
-Suggests: broom, covr, devtools (>= 1.12.0), fs, knitr, nycflights13,
-        rmarkdown, stringr, testthat, tidyr, vdiffr
+        magrittr, methods, purrr, rlang (>= 0.2.0), tibble, broom,
+        tidyr, generics, patchwork
+Suggests: covr, devtools (>= 1.12.0), fs, knitr, nycflights13,
+        rmarkdown, stringr, testthat, vdiffr (>= 1.0.0)
 VignetteBuilder: knitr
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.1
 NeedsCompilation: no
-Packaged: 2021-01-06 21:45:29 UTC; simonpcouch
+Packaged: 2021-08-12 21:46:08 UTC; simonpcouch
 Author: Andrew Bray [aut, cre],
   Chester Ismay [aut] (<https://orcid.org/0000-0003-2820-2547>),
   Evgeni Chasnovski [aut] (<https://orcid.org/0000-0002-1617-4019>),
+  Simon Couch [aut] (<https://orcid.org/0000-0001-5676-5107>),
   Ben Baumer [aut] (<https://orcid.org/0000-0002-3279-0516>),
   Mine Cetinkaya-Rundel [aut] (<https://orcid.org/0000-0001-6452-2420>),
-  Simon Couch [ctb],
   Ted Laderas [ctb] (<https://orcid.org/0000-0002-6207-7068>),
   Nick Solomon [ctb],
   Johanna Hardin [ctb],
@@ -99,4 +101,4 @@ Author: Andrew Bray [aut, cre],
   Brian Fannin [ctb]
 Maintainer: Andrew Bray <abray@reed.edu>
 Repository: CRAN
-Date/Publication: 2021-01-13 16:50:12 UTC
+Date/Publication: 2021-08-13 17:30:02 UTC

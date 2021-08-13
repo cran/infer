@@ -47,15 +47,15 @@ test_that("cohesion with type argument", {
   expect_warning(generate(hyp_diff_in_means, type = "bootstrap"))
   expect_warning(generate(hyp_anova, type = "bootstrap"))
 
-  expect_silent(generate(hyp_prop, type = "simulate"))
-  expect_warning(generate(hyp_diff_in_props, type = "simulate"))
-  expect_silent(generate(hyp_chisq_gof, type = "simulate"))
-  expect_warning(generate(hyp_chisq_ind, type = "simulate"))
+  expect_silent(generate(hyp_prop, type = "draw"))
+  expect_warning(generate(hyp_diff_in_props, type = "draw"))
+  expect_silent(generate(hyp_chisq_gof, type = "draw"))
+  expect_warning(generate(hyp_chisq_ind, type = "draw"))
   expect_error(
-    expect_warning(generate(hyp_mean, type = "simulate"))
+    expect_warning(generate(hyp_mean, type = "draw"))
   )
-  expect_warning(generate(hyp_diff_in_means, type = "simulate"))
-  expect_warning(generate(hyp_anova, type = "simulate"))
+  expect_warning(generate(hyp_diff_in_means, type = "draw"))
+  expect_warning(generate(hyp_anova, type = "draw"))
 
   expect_error(
     expect_warning(generate(hyp_prop, type = "permute"))
@@ -75,7 +75,7 @@ test_that("cohesion with type argument", {
 test_that("sensible output", {
   expect_equal(
     nrow(mtcars_df) * 500,
-    nrow(generate(hyp_prop, reps = 500, type = "simulate"))
+    nrow(generate(hyp_prop, reps = 500, type = "draw"))
   )
   expect_silent(generate(hyp_mean, reps = 1, type = "bootstrap"))
   expect_error(generate(hyp_mean, reps = 1, type = "other"))
@@ -151,9 +151,9 @@ test_that("auto `type` works (generate)", {
   expect_equal(attr(one_mean, "type"), "bootstrap")
   expect_equal(attr(one_nonshift_mean, "type"), "bootstrap")
   expect_equal(attr(one_median, "type"), "bootstrap")
-  expect_equal(attr(one_prop, "type"), "simulate")
+  expect_equal(attr(one_prop, "type"), "draw")
   expect_equal(attr(two_props, "type"), "permute")
-  expect_equal(attr(gof_chisq, "type"), "simulate")
+  expect_equal(attr(gof_chisq, "type"), "draw")
   expect_equal(attr(indep_chisq, "type"), "permute")
   expect_equal(attr(two_means, "type"), "permute")
   expect_equal(attr(anova_f, "type"), "permute")
@@ -173,7 +173,7 @@ test_that("auto `type` works (generate)", {
 
   expect_warning(mtcars_df %>%
       specify(response = mpg) %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 
   expect_warning(
@@ -205,7 +205,7 @@ test_that("auto `type` works (generate)", {
   expect_warning(mtcars_df %>%
       specify(cyl ~ am) %>% # alt: response = cyl, explanatory = am
       hypothesize(null = "independence") %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 
   expect_warning(mtcars_df %>%
@@ -216,7 +216,7 @@ test_that("auto `type` works (generate)", {
   expect_warning(mtcars_df %>%
       specify(mpg ~ cyl) %>% # alt: response = mpg, explanatory = cyl
       hypothesize(null = "independence") %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 
   expect_warning(mtcars_df %>%
@@ -227,7 +227,7 @@ test_that("auto `type` works (generate)", {
 
   expect_warning(mtcars_df %>%
       specify(response = am, success = "1") %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 
   expect_error(
@@ -241,12 +241,12 @@ test_that("auto `type` works (generate)", {
 
   expect_warning(mtcars_df %>%
       specify(am ~ vs, success = "1") %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 
   expect_warning(mtcars_df %>%
       specify(mpg ~ hp) %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
 })
 
@@ -256,7 +256,7 @@ test_that("mismatches lead to error", {
     mtcars_df %>%
       specify(am ~ NULL, success = "1") %>%
       hypothesize(null = "independence", p = c("1" = 0.5)) %>%
-      generate(reps = 100, type = "simulate")
+      generate(reps = 100, type = "draw")
   )
   expect_warning(
     mtcars_df %>%
@@ -273,7 +273,7 @@ test_that("mismatches lead to error", {
 test_that("generate() handles `NULL` value of `type`", {
   expect_message(
     generate(hyp_prop, type = NULL),
-    'Setting `type = "simulate"` in `generate()`.',
+    'Setting `type = "draw"` in `generate()`.',
     fixed = TRUE
   )
 })
@@ -283,7 +283,268 @@ test_that("generate() handles `x` response in case of 'simulate' (#299)", {
     data.frame(x = factor(rbinom(100, size = 1, prob = .5))) %>%
       specify(response = x, success = "1") %>%
       hypothesize(null = "point", p = .5) %>%
-      generate(reps = 100, type = "simulate"),
+      generate(reps = 100, type = "draw"),
     c("x", "replicate")
+  )
+})
+
+test_that("generate() can permute with multiple explanatory variables", {
+  # if the y variable is the one being permuted and the x's
+  # are being left alone, then each age + college combination
+  # should exist in every replicate
+  expect_true(
+    gss %>% 
+      # add random noise to make the variable truly continuous
+      dplyr::mutate(age = age + rnorm(nrow(gss))) %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 3, type = "permute") %>%
+      dplyr::ungroup() %>%
+      dplyr::count(age, college) %>%
+      dplyr::pull(n) %>%
+      `==`(3) %>%
+      all()
+  )
+  
+  x <- gss %>% 
+    specify(hours ~ age + college) %>%
+    hypothesize(null = "independence") %>%
+    generate(reps = 3, type = "permute")
+  
+  expect_true(inherits(x, "infer"))
+  expect_true(inherits(explanatory_variable(x), "tbl_df"))
+  expect_true(inherits(explanatory_name(x), "character"))
+  expect_true(inherits(explanatory_expr(x), "call"))
+  
+  expect_equal(explanatory_name(x), c("age", "college"))
+  expect_equal(response_name(x), "hours")
+  
+  expect_equal(nrow(x), 1500)
+  expect_equal(ncol(x), 4)
+})
+
+test_that("generate is sensitive to the variables argument", {
+  # default argument works appropriately
+  expect_equal({ 
+      set.seed(1)
+      
+      gss[1:10,] %>%
+        specify(hours ~ age + college) %>%
+        hypothesize(null = "independence") %>%
+        generate(reps = 2, type = "permute")
+      }, { 
+      set.seed(1)
+      
+      gss[1:10,] %>%
+        specify(hours ~ age + college) %>%
+        hypothesize(null = "independence") %>%
+        generate(reps = 2, type = "permute", variables = hours)
+  })
+  
+  # permuting changes output
+  expect_silent(
+    perm_age <- gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = age)
+  )
+  
+  expect_false(all(perm_age$age[1:10] == perm_age$age[11:20]))
+  expect_true(all(perm_age$hours[1:10] == perm_age$hours[11:20]))
+  expect_true(all(perm_age$college[1:10] == perm_age$college[11:20]))
+  
+  expect_silent(
+    perm_college <- gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = college)
+  )
+  
+  expect_true(all(perm_college$age[1:10] == perm_college$age[11:20]))
+  expect_true(all(perm_college$hours[1:10] == perm_college$hours[11:20]))
+  expect_false(all(perm_college$college[1:10] == perm_college$college[11:20]))
+  
+  expect_silent(
+    perm_college_age <- gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = c(college, age))
+  )
+  
+  expect_false(all(perm_college_age$age[1:10] == perm_college_age$age[11:20]))
+  expect_true(all(perm_college_age$hours[1:10] == perm_college_age$hours[11:20]))
+  expect_false(all(perm_college_age$college[1:10] == perm_college_age$college[11:20]))
+  
+  # interaction effects are ignored
+  expect_equal({ 
+    set.seed(1)
+    
+    expect_message(
+      gss[1:10,] %>%
+        specify(hours ~ age + college) %>%
+        hypothesize(null = "independence") %>%
+        generate(reps = 2, type = "permute", variables = c(hours, age*college))
+    )
+  }, { 
+    set.seed(1)
+    
+    gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = hours)
+  })
+})
+
+test_that("variables argument prompts when it ought to", {
+  expect_error(
+    gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = c(howdy)),
+    "howdy.*is not in the supplied data."
+  )
+  
+  expect_error(
+    gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = c(howdy, doo)),
+    'columns.*"howdy", "doo".*are not in the supplied data.'
+  )
+  
+  expect_warning(
+    gss[1:10,] %>%
+      specify(hours ~ NULL) %>%
+      hypothesize(null = "point", mu = 40) %>%
+      generate(reps = 2, type = "bootstrap", variables = c(hours)),
+    "is only relevant for.*will be ignored."
+  )
+  
+  expect_error(
+    gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = "hours"),
+    'unquoted variable names'
+  )
+  
+  expect_message(
+    gss[1:10,] %>%
+      specify(hours ~ age + college + age*college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = age*college),
+    "supply only data columns"
+  )
+  
+  expect_message(
+    gss[1:10,] %>%
+      specify(hours ~ age + college + age*college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = c(hours, age*college)),
+    "supply only data columns"
+  )
+  
+  expect_silent(
+    gss[1:10,] %>%
+      specify(hours ~ age + college + age*college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute", variables = c(hours))
+  )
+  
+  expect_silent(
+    gss[1:10,] %>%
+      specify(hours ~ age + college + age*college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute")
+  )
+  
+  expect_silent(
+    gss[1:10,] %>%
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 2, type = "permute")
+  )
+  
+  # warn on type != permute but don't raise message re: interaction
+  # effects unless otherwise used appropriately
+  expect_silent(
+    expect_warning(
+      gss[1:10,] %>%
+        specify(hours ~ age*college) %>%
+        generate(
+          reps = 2, 
+          type = "bootstrap", 
+          variables = c(hours, age*college)
+        )
+    )
+  )
+})
+
+test_that("type = 'draw'/'simulate' superseding handled gracefully", {
+  # message on type = 'simulate'
+  expect_message(
+    mtcars_df %>%
+      specify(response = am, success = "1") %>%
+      hypothesize(null = "point", p = .5) %>%
+      generate(type = "simulate"),
+    '`"simulate"` generation type.*renamed to `"draw"`.*quiet'
+  )
+  
+  # don't message on type = 'draw'
+  expect_silent(
+    mtcars_df %>%
+      specify(response = am, success = "1") %>%
+      hypothesize(null = "point", p = .5) %>%
+      generate(type = "draw")
+  )
+
+  # mention new generation types when supplied a bad one
+  expect_error(
+    mtcars_df %>%
+      specify(response = am, success = "1") %>%
+      hypothesize(null = "point", p = .5) %>%
+      generate(type = "boop"),
+    'should be one of "bootstrap", "permute", or "draw"'
+  )
+  
+  # warns with either alias when given unexpected generate type
+  expect_error(
+    expect_warning(
+      mtcars_df %>%
+        specify(response = mpg) %>%
+        hypothesize(null = "point", mu = 20) %>%
+        generate(type = "draw"),
+      'have given `type = "draw"`.*expected to be `"bootstrap"`.*untested'
+    )
+  )
+  
+  expect_error(
+    expect_warning(
+      mtcars_df %>%
+        specify(response = mpg) %>%
+        hypothesize(null = "point", mu = 20) %>%
+        generate(type = "draw"),
+      'have given `type = "draw"`.*expected to be `"bootstrap"`.*untested'
+    )
+  )
+  
+  expect_equivalent(
+    {
+      set.seed(1)
+      
+      expect_message(
+        mtcars_df %>%
+          specify(response = am, success = "1") %>%
+          hypothesize(null = "point", p = .5) %>%
+          generate(type = "simulate")
+      )
+    }, {
+      set.seed(1)
+      
+      mtcars_df %>%
+        specify(response = am, success = "1") %>%
+        hypothesize(null = "point", p = .5) %>%
+        generate(type = "draw")
+    }
   )
 })

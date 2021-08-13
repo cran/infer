@@ -25,11 +25,12 @@ gss %>%
 # calculate the observed statistic
 observed_indep_statistic <- gss %>%
   specify(college ~ finrela) %>%
+  hypothesize(null = "independence") %>%
   calculate(stat = "Chisq")
 
 ## ----generate-null-indep, warning = FALSE, message = FALSE--------------------
 # generate the null distribution using randomization
-null_distribution_simulated <- gss %>%
+null_dist_sim <- gss %>%
   specify(college ~ finrela) %>%
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
@@ -37,15 +38,13 @@ null_distribution_simulated <- gss %>%
 
 ## ----generate-null-indep-t, warning = FALSE, message = FALSE------------------
 # generate the null distribution by theoretical approximation
-null_distribution_theoretical <- gss %>%
+null_dist_theory <- gss %>%
   specify(college ~ finrela) %>%
-  hypothesize(null = "independence") %>%
-  # note that we skip the generation step here!
-  calculate(stat = "Chisq")
+  assume(distribution = "Chisq")
 
 ## ----visualize-indep, warning = FALSE, message = FALSE------------------------
 # visualize the null distribution and test statistic!
-null_distribution_simulated %>%
+null_dist_sim %>%
   visualize() + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
@@ -54,25 +53,28 @@ null_distribution_simulated %>%
 # visualize the theoretical null distribution and test statistic!
 gss %>%
   specify(college ~ finrela) %>%
-  hypothesize(null = "independence") %>%
-  visualize(method = "theoretical") + 
+  assume(distribution = "Chisq") %>%
+  visualize() + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
 
 ## ----visualize-indep-both, warning = FALSE, message = FALSE-------------------
 # visualize both null distributions and the test statistic!
-null_distribution_simulated %>%
+null_dist_sim %>%
   visualize(method = "both") + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
 
 ## ----p-value-indep, warning = FALSE, message = FALSE--------------------------
 # calculate the p value from the observed statistic and null distribution
-p_value_independence <- null_distribution_simulated %>%
+p_value_independence <- null_dist_sim %>%
   get_p_value(obs_stat = observed_indep_statistic,
               direction = "greater")
 
 p_value_independence
+
+## -----------------------------------------------------------------------------
+pchisq(observed_indep_statistic$stat, 5, lower.tail = FALSE)
 
 ## ----chisq-indep-wrapper, message = FALSE, warning = FALSE--------------------
 chisq_test(gss, college ~ finrela)
@@ -101,7 +103,7 @@ observed_gof_statistic <- gss %>%
 
 ## ----null-distribution-gof, warning = FALSE, message = FALSE------------------
 # generating a null distribution, assuming each income class is equally likely
-null_distribution_gof <- gss %>%
+null_dist_gof <- gss %>%
   specify(response = finrela) %>%
   hypothesize(null = "point",
               p = c("far below average" = 1/6,
@@ -110,23 +112,26 @@ null_distribution_gof <- gss %>%
                     "above average" = 1/6,
                     "far above average" = 1/6,
                     "DK" = 1/6)) %>%
-  generate(reps = 1000, type = "simulate") %>%
+  generate(reps = 1000, type = "draw") %>%
   calculate(stat = "Chisq")
 
 ## ----visualize-indep-gof, warning = FALSE, message = FALSE--------------------
 # visualize the null distribution and test statistic!
-null_distribution_gof %>%
+null_dist_gof %>%
   visualize() + 
   shade_p_value(observed_gof_statistic,
                 direction = "greater")
 
 ## ----get-p-value-gof, warning = FALSE, message = FALSE------------------------
 # calculate the p-value
-p_value_gof <- null_distribution_gof %>%
+p_value_gof <- null_dist_gof %>%
   get_p_value(observed_gof_statistic,
               direction = "greater")
 
 p_value_gof
+
+## -----------------------------------------------------------------------------
+pchisq(observed_gof_statistic$stat, 5, lower.tail = FALSE)
 
 ## ----chisq-gof-wrapper, message = FALSE, warning = FALSE----------------------
 chisq_test(gss, 

@@ -5,17 +5,37 @@
 #' @noRd
 set_params <- function(x) {
   attr(x, "theory_type") <- NULL
-
+  
   if (has_response(x)) {
-    num_response_levels <- length(levels(response_variable(x)))
+    num_response_levels <- length(unique(response_variable(x)))
+    
+    check_factor_levels(
+      response_variable(x), 
+      "response", 
+      response_name(x)
+    )
   }
-
+  
+  if (is_mlr(x)) {
+    return(x)
+  }
+  
+  if (has_explanatory(x)) {
+    num_explanatory_levels <- length(unique(explanatory_variable(x)))
+    
+    check_factor_levels(
+      explanatory_variable(x), 
+      "explanatory", 
+      explanatory_name(x)
+    )
+  }
+  
   # One variable
   if (
     has_response(x) && !has_explanatory(x) &&
-    !is_nuat(x, "response_type") && is_nuat(x, "explanatory_type")
+    has_attr(x, "response_type") && !has_attr(x, "explanatory_type")
   ) {
-
+    
     # One mean
     if (attr(x, "response_type") %in% c("integer", "numeric")) {
       attr(x, "theory_type") <- "One sample t"
@@ -30,22 +50,22 @@ set_params <- function(x) {
     ) {
       # No parameters since standard normal
       attr(x, "theory_type") <- "One sample prop z"
-      # Changed to `"simulate"` when `p` provided in `hypothesize()`
+      # Changed to `"draw"` when `p` provided in `hypothesize()`
       attr(x, "type") <- "bootstrap"
     } else {
       attr(x, "theory_type") <- "Chi-square Goodness of Fit"
       attr(x, "distr_param") <- num_response_levels - 1
-      attr(x, "type") <- "simulate"
+      attr(x, "type") <- "draw"
     }
   }
-
+  
   # Two variables
   if (
     has_response(x) && has_explanatory(x) &
-    !is_nuat(x, "response_type") && !is_nuat(x, "explanatory_type")
+    has_attr(x, "response_type") && has_attr(x, "explanatory_type")
   ) {
     attr(x, "type") <- "bootstrap"
-
+    
     # Response is numeric, explanatory is categorical
     if (
       (attr(x, "response_type") %in% c("integer", "numeric")) &
@@ -53,7 +73,7 @@ set_params <- function(x) {
     ) {
       
       # Two sample means (t distribution)
-      if (length(levels(explanatory_variable(x))) == 2) {
+      if (num_explanatory_levels == 2) {
         attr(x, "theory_type") <- "Two sample t"
         # Keep track of Satterthwaite degrees of freedom since lost when
         # in aggregation w/ calculate()/generate()
@@ -72,19 +92,19 @@ set_params <- function(x) {
         attr(x, "distr_param2") <- degrees[2]
       }
     }
-
+    
     # Response is categorical, explanatory is categorical
     if (
       (attr(x, "response_type") == "factor") &
       (attr(x, "explanatory_type") == "factor")
     ) {
       attr(x, "type") <- "bootstrap"
-
+      
       # Two sample proportions (z distribution)
       # Parameter(s) not needed since standard normal
       if (
-        (length(levels(response_variable(x))) == 2) &
-        (length(levels(explanatory_variable(x))) == 2)
+        (num_response_levels == 2) &
+        (num_explanatory_levels == 2)
       ) {
         attr(x, "theory_type") <- "Two sample props z"
       } else {
@@ -98,21 +118,31 @@ set_params <- function(x) {
         )
       }
     }
-
+    
     # Response is numeric, explanatory is numeric
     if (
       (attr(x, "response_type") %in% c("integer", "numeric")) &
       (attr(x, "explanatory_type") %in% c("integer", "numeric"))
     ) {
-      response_string <- as.character(attr(x, "response"))
-      explanatory_string <- as.character(attr(x, "explanatory"))
+      response_string <- response_name(x)
+      explanatory_string <- explanatory_name(x)
       attr(x, "theory_type") <- "Slope/correlation with t"
       attr(x, "distr_param") <- nrow(x) - 2
     }
   }
 
-#  if(is_nuat(x, "theory_type"))
-#     warning_glue("Theoretical type not yet implemented")
-
   x
+}
+
+check_factor_levels <- function(x, type, name) {
+  if (is.factor(x)) {
+    unused <- setdiff(levels(x), unique(x))
+    
+    if (length(unused) > 0) {
+      message_glue(
+        "Dropping unused factor levels {list(unused)} from the ",
+        "supplied {type} variable '{name}'."
+      )
+    }
+  }
 }

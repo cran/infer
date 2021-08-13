@@ -6,18 +6,45 @@ test_that("x is a tibble", {
   expect_error(calculate(vec, stat = "mean"))
 })
 
-test_that("stat argument is appropriate", {
+test_that("calculate checks `stat` argument", {
   # stat is a string
   expect_error(calculate(gss_tbl, stat = 3))
 
-  # stat is one of the implemented options
+  # stat is one of the implemented options with informative error
   gen_gss_slope <- gss_tbl %>%
     specify(hours ~ age) %>%
     hypothesize(null = "independence") %>%
     generate(reps = 10, type = "permute")
-  expect_error(calculate(gen_gss_slope, stat = "slopee"))
-  expect_error(calculate(gen_gss_slope, stat = "stdev"))
-  expect_error(calculate(gen_gss_slope, stat = "stat"))
+
+  expect_error(
+    calculate(gen_gss_slope, stat = "slopee"),
+    '`stat` must be one of.*Did you mean "slope"'
+  )
+  expect_error(
+    calculate(gen_gss_slope, stat = "stdev"),
+    "`stat` must be one of"
+  )
+  expect_error(
+    calculate(gen_gss_slope, stat = "stat"),
+    "`stat` must be one of"
+  )
+  expect_error(
+    calculate(gen_gss_slope, stat = "chi sq"),
+    '`stat` must be one of.*Did you mean "Chisq"'
+  )
+
+  # stat can be one of the allowed aliases
+  chisq_df <- gss %>% specify(formula = finrela ~ sex)
+  expect_equal(
+    calculate(chisq_df, stat = "Chisq")[["stat"]],
+    calculate(chisq_df, stat = "chisq")[["stat"]]
+  )
+
+  f_df <- gss %>% specify(age ~ partyid)
+  expect_equal(
+    calculate(f_df, stat = "F")[["stat"]],
+    calculate(f_df, stat = "f")[["stat"]]
+  )
 })
 
 test_that("response attribute has been set", {
@@ -34,7 +61,7 @@ test_that("variable chosen is of appropriate class (one var problems)", {
       null = "point",
       p = c("dem" = .5, "rep" = .25, "ind" = .25)
     ) %>%
-    generate(reps = 10, type = "simulate")
+    generate(reps = 10, type = "draw")
   expect_error(calculate(gen_gss1, stat = "mean"))
 
   # One mean example
@@ -211,7 +238,7 @@ test_that("chi-square matches chisq.test value", {
       null = "point",
       p = c("dem" = 1 / 3, "rep" = 1 / 3, "ind" = 1 / 3)
     ) %>%
-    generate(reps = 10, type = "simulate")
+    generate(reps = 10, type = "draw")
   infer_way <- calculate(gen_gss9, stat = "Chisq")
   # chisq.test way
   trad_way <- gen_gss9 %>%
@@ -228,7 +255,7 @@ test_that("chi-square matches chisq.test value", {
       null = "point",
       p = c("dem" = 0.8, "rep" = 0.1, "ind" = 0.1)
     ) %>%
-    generate(reps = 10, type = "simulate")
+    generate(reps = 10, type = "draw")
   infer_way <- calculate(gen_gss9a, stat = "Chisq")
   # chisq.test way
   trad_way <- gen_gss9a %>%
@@ -247,24 +274,24 @@ test_that("chi-square works with factors with unused levels", {
   )
 
   # Unused levels in explanatory variable
-  expect_warning(
+  expect_message(
     out <- test_tbl %>%
       specify(y ~ x) %>%
       calculate(stat = "Chisq") %>%
       pull(),
-    "Explanatory.*unused.*levels"
+    "Dropping unused factor levels.*explanatory"
   )
   expect_true(!is.na(out))
 
   # Unused levels in response variable
   test_tbl[["x"]] <- factor(test_tbl[["x"]])
   levels(test_tbl[["y"]]) <- c("e", "f", "g")
-  expect_warning(
+  expect_message(
     out <- test_tbl %>%
       specify(y ~ x) %>%
       calculate(stat = "Chisq") %>%
       pull(),
-    "Response.*unused.*levels"
+    "Dropping unused factor levels.*response"
   )
   expect_true(!is.na(out))
 })
@@ -321,7 +348,7 @@ test_that("`order` is working", {
 gen_gss_tbl12 <- gss_tbl %>%
   specify(college ~ NULL, success = "no degree") %>%
   hypothesize(null = "point", p = 0.3) %>%
-  generate(reps = 10, type = "simulate")
+  generate(reps = 10, type = "draw")
 
 test_that('success is working for stat = "prop"', {
   expect_silent(gen_gss_tbl12 %>% calculate(stat = "prop"))
@@ -371,7 +398,7 @@ test_that("order being given when not needed gives warning", {
 #         null = "point",
 #         p = c("dem" = 0.4, "rep" = 0.4, "ind" = 0.2)
 #       ) %>%
-#       # generate(reps = 10, type = "simulate") %>%
+#       # generate(reps = 10, type = "draw") %>%
 #       calculate(stat = "Chisq")
 #   )
 # })
@@ -380,14 +407,14 @@ test_that("specify() %>% calculate() works", {
   expect_silent(
     gss_tbl %>% specify(hours ~ NULL) %>% calculate(stat = "mean")
   )
-  expect_error(
+  expect_message(
     gss_tbl %>%
       specify(hours ~ NULL) %>%
       hypothesize(null = "point", mu = 4) %>%
       calculate(stat = "mean")
   )
 
-  expect_error(
+  expect_warning(
     gss_tbl %>% specify(partyid ~ NULL) %>% calculate(stat = "Chisq")
   )
 })
@@ -401,11 +428,11 @@ test_that("One sample t hypothesis test is working", {
       calculate(stat = "t")
   )
 
-  expect_message(
+  expect_warning(
     gss_tbl %>%
       specify(response = hours) %>%
       calculate(stat = "t"),
-    "the t-test will assume a null hypothesis"
+    "A t statistic requires"
   )
 
   gss_tbl %>%
@@ -426,7 +453,7 @@ test_that("specify done before calculate", {
 
 test_that("chisq GoF has params specified for observed stat", {
   no_params <- gss_tbl %>% specify(response = partyid)
-  expect_error(calculate(no_params, stat = "Chisq"))
+  expect_warning(calculate(no_params, stat = "Chisq"))
 
   params <- gss_tbl %>%
     specify(response = partyid) %>%
@@ -437,22 +464,11 @@ test_that("chisq GoF has params specified for observed stat", {
   expect_silent(calculate(params, stat = "Chisq"))
 })
 
-test_that("generate not done before calculate", {
-  gss_tbl_hyp <- gss_tbl %>%
-    specify(hours ~ college) %>%
-    hypothesize(null = "independence")
-  attr(gss_tbl_hyp, "generate") <- TRUE
-  expect_warning(calculate(gss_tbl_hyp,
-    stat = "t",
-    order = c("no degree", "degree")
-  ))
-})
-
 test_that("One sample t bootstrap is working", {
-  expect_message(
+  expect_warning(
     gss_tbl %>%
       specify(hours ~ NULL) %>%
-      generate(reps = 10) %>%
+      generate(reps = 10, type = "bootstrap") %>%
       calculate(stat = "t")
   )
 })
@@ -464,7 +480,7 @@ test_that("calculate doesn't depend on order of `p` (#122)", {
     gss_tbl %>%
       specify(partyid ~ NULL) %>%
       hypothesize(null = "point", p = p) %>%
-      generate(reps = 500, type = "simulate") %>%
+      generate(reps = 500, type = "draw") %>%
       calculate("Chisq") %>%
       get_p_value(obs_stat = 5, direction = "right")
   }
@@ -582,3 +598,165 @@ test_that("calc_impl.z works for one sample proportions", {
   
   expect_equal(infer_obs_stat, base_obs_stat, tolerance = eps)
 })
+
+test_that("calculate warns informatively with insufficient null", {
+  expect_warning(
+    gss %>%
+      specify(response = sex, success = "female") %>%
+      calculate(stat = "z"),
+    "following null value: `p = .5`"
+  )
+  
+  expect_warning(
+    gss %>%
+      specify(hours ~ NULL) %>%
+      calculate(stat = "t"),
+    "following null value: `mu = 0`"
+  )
+  
+  expect_warning(
+    gss %>%
+      specify(response = partyid) %>%
+      calculate(stat = "Chisq"),
+    "the following null values: `p = c(dem = 0.2",
+    fixed = TRUE
+  )
+})
+
+test_that("calculate messages informatively with excessive null", {
+  expect_message(
+    gss %>%
+      specify(hours ~ NULL) %>%
+      hypothesize(null = "point", mu = 40) %>%
+      calculate(stat = "mean"),
+    "point null hypothesis `mu = 40` does not inform calculation"
+  )
+  
+  expect_message(
+    gss %>%
+      specify(hours ~ NULL) %>%
+      hypothesize(null = "point", sigma = 10) %>%
+      calculate(stat = "sd"),
+    "point null hypothesis `sigma = 10` does not inform calculation"
+  )
+  
+  expect_message(
+    gss %>%
+      specify(hours ~ college) %>%
+      hypothesize(null = "independence") %>%
+      calculate("diff in means", order = c("no degree", "degree")),
+    "independence null hypothesis does not inform calculation"
+  )
+})
+
+test_that("calculate can handle variables named x", {
+  expect_silent({
+    t_0 <- data.frame(x = 1:10) %>% 
+      specify(response = x) %>% 
+      hypothesise(null = "point", mu = 0) %>% 
+      calculate(stat = "t")
+  })
+  
+  expect_silent({
+    t_1 <- data.frame(sample = 1:10) %>% 
+      specify(response = sample) %>% 
+      hypothesise(null = "point", mu = 0) %>% 
+      calculate(stat = "t")
+  })
+  
+  expect_equal(
+    unname(t_0$stat),
+    unname(t_1$stat),
+    tolerance = .001
+  )
+})
+
+test_that("calculate errors out with multiple explanatory variables", {
+  expect_error(
+    gss %>% 
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      calculate(stat = "t"),
+    "Multiple explanatory variables.*in calculate"
+  )
+  
+  expect_error(
+    gss %>% 
+      specify(hours ~ age + college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = 3, type = "permute") %>% 
+      calculate(stat = "t"),
+    "Multiple explanatory variables.*in calculate"
+  )
+})
+
+test_that("reported standard errors are correct", {
+  # mean ---------------------------------------------------------------------
+  x_bar <- gss %>%
+    specify(response = hours) %>%
+    calculate(stat = "mean")
+  
+  expect_equal(
+    attr(x_bar, "se"),
+    stats::sd(gss$hours)/sqrt(nrow(gss)),
+    tolerance = 1e-6
+  )
+  
+  # prop ---------------------------------------------------------------------
+  p_hat <- gss %>% 
+    specify(response = sex, success = "female") %>%
+    calculate(stat = "prop")
+  
+  expect_equal(
+    attr(p_hat, "se"),
+    sqrt(
+      (mean(gss$sex == "female") * (1 - mean(gss$sex == "female"))) / nrow(gss)
+    ),
+    tolerance = 1e-6
+  )
+  
+  # diff in means ------------------------------------------------------------
+  diff_bar <- gss %>%
+    specify(hours ~ college) %>%
+    calculate(stat = "diff in means", order = c("no degree", "degree"))
+  
+  expect_equal(
+    attr(diff_bar, "se"),
+    sqrt(
+      (stats::sd(gss$hours[gss$college == "degree"]) / 
+         sqrt(nrow(gss[gss$college == "degree",])))^2 +
+      (stats::sd(gss$hours[gss$college == "no degree"]) / 
+         sqrt(nrow(gss[gss$college == "no degree",])))^2  
+    ),
+    tolerance = 1e-6
+  )
+  
+  # diff in props ------------------------------------------------------------
+  diff_hat <- gss %>%
+    specify(sex ~ college, success = "female") %>%
+    calculate(stat = "diff in props", order = c("no degree", "degree"))
+  
+  expect_equal(
+    attr(diff_hat, "se"),
+    sqrt(
+      abs((mean(gss[gss$college == "degree",]$sex == "female") * 
+          (1 - mean(gss[gss$college == "degree",]$sex == "female"))) / 
+          nrow(gss[gss$college == "degree",])) +
+      abs((mean(gss[gss$college == "no degree",]$sex == "female") * 
+          (1 - mean(gss[gss$college == "no degree",]$sex == "female"))) / 
+          nrow(gss[gss$college == "no degree",]))
+    ),
+    tolerance = 1e-6
+  )
+})
+
+
+
+
+
+
+
+
+
+
+

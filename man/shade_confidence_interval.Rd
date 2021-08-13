@@ -15,9 +15,14 @@ shade_confidence_interval(
 shade_ci(endpoints, color = "mediumaquamarine", fill = "turquoise", ...)
 }
 \arguments{
-\item{endpoints}{A 2 element vector or a 1 x 2 data frame containing the
-lower and upper values to be plotted. Most useful for visualizing
-conference intervals.}
+\item{endpoints}{The lower and upper bounds of the interval to be plotted.
+Likely, this will be the output of \code{\link[=get_confidence_interval]{get_confidence_interval()}}.
+For \code{\link[=calculate]{calculate()}}-based workflows, this will be a 2-element vector
+or a \verb{1 x 2} data frame containing the lower and upper values to be plotted.
+For \code{\link[=fit.infer]{fit()}}-based workflows, a \verb{(p + 1) x 3} data frame
+with columns \code{term}, \code{lower_ci}, and \code{upper_ci}, giving the upper and
+lower bounds for each regression term. For use in visualizations of
+\code{\link[=assume]{assume()}} output, this must be the output of \code{\link[=get_confidence_interval]{get_confidence_interval()}}.}
 
 \item{color}{A character or hex string specifying the color of the
 end points as a vertical lines on the plot.}
@@ -28,13 +33,14 @@ confidence interval. If \code{NULL} then no shading is actually done.}
 \item{...}{Other arguments passed along to \\{ggplot2\\} functions.}
 }
 \value{
-A list of \\{ggplot2\\} objects to be added to the \code{visualize()}
-output.
+If added to an existing {infer} visualization, a \\{ggplot2\\}
+object displaying the supplied intervals on top of its corresponding
+distribution. Otherwise, an \code{infer_layer} list.
 }
 \description{
-\code{shade_confidence_interval()} plots confidence interval region on top of the
-\code{\link[=visualize]{visualize()}} output. It should be used as \\{ggplot2\\} layer function (see
-examples). \code{shade_ci()} is its alias.
+\code{shade_confidence_interval()} plots a confidence interval region on top of
+\code{\link[=visualize]{visualize()}} output. The output is a ggplot2 layer that can be added with
+\code{+}. The function has a shorter alias, \code{shade_ci()}.
 
 Learn more in \code{vignette("infer")}.
 }
@@ -42,22 +48,19 @@ Learn more in \code{vignette("infer")}.
 # find the point estimate---mean number of hours worked per week
 point_estimate <- gss \%>\%
   specify(response = hours) \%>\%
-  calculate(stat = "mean") \%>\%
-  dplyr::pull()
+  calculate(stat = "mean")
   
-# ...and a null distribution
-null_dist <- gss \%>\%
+# ...and a bootstrap distribution
+boot_dist <- gss \%>\%
   # ...we're interested in the number of hours worked per week
   specify(response = hours) \%>\%
-  # hypothesizing that the mean is 40
-  hypothesize(null = "point", mu = 40) \%>\%
-  # generating data points for a null distribution
+  # generating data points
   generate(reps = 1000, type = "bootstrap") \%>\%
-  # finding the null distribution
+  # finding the distribution from the generated data
   calculate(stat = "mean")
   
 # find a confidence interval around the point estimate
-ci <- null_dist \%>\%
+ci <- boot_dist \%>\%
   get_confidence_interval(point_estimate = point_estimate,
                           # at the 95\% confidence level
                           level = .95,
@@ -66,21 +69,72 @@ ci <- null_dist \%>\%
   
   
 # and plot it!
-null_dist \%>\%
+boot_dist \%>\%
   visualize() +
   shade_confidence_interval(ci)
   
 # or just plot the bounds
-null_dist \%>\%
+boot_dist \%>\%
   visualize() +
   shade_confidence_interval(ci, fill = NULL)
+  
+# you can shade confidence intervals on top of
+# theoretical distributions, too---the theoretical
+# distribution will be recentered and rescaled to
+# align with the confidence interval
+sampling_dist <- gss \%>\%
+  specify(response = hours) \%>\%
+  assume(distribution = "t") 
+  
+visualize(sampling_dist) +
+  shade_confidence_interval(ci)
 
-# More in-depth explanation of how to use the infer package
+\donttest{
+# to visualize distributions of coefficients for multiple
+# explanatory variables, use a `fit()`-based workflow
+
+# fit 1000 linear models with the `hours` variable permuted
+null_fits <- gss \%>\%
+ specify(hours ~ age + college) \%>\%
+ hypothesize(null = "independence") \%>\%
+ generate(reps = 1000, type = "permute") \%>\%
+ fit()
+ 
+null_fits
+
+# fit a linear model to the observed data
+obs_fit <- gss \%>\%
+  specify(hours ~ age + college) \%>\%
+  fit()
+
+obs_fit
+
+# get confidence intervals for each term
+conf_ints <- 
+  get_confidence_interval(
+    null_fits, 
+    point_estimate = obs_fit, 
+    level = .95
+  )
+
+# visualize distributions of coefficients 
+# generated under the null
+visualize(null_fits)
+
+# add a confidence interval shading layer to juxtapose 
+# the null fits with the observed fit for each term
+visualize(null_fits) + 
+  shade_confidence_interval(conf_ints)
+}
+
+# more in-depth explanation of how to use the infer package
 \dontrun{
 vignette("infer")
 }
 
 }
 \seealso{
-\code{\link[=shade_p_value]{shade_p_value()}} to add information about p-value region.
+Other visualization functions: 
+\code{\link{shade_p_value}()}
 }
+\concept{visualization functions}

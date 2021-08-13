@@ -15,7 +15,7 @@ gss_tbl <- tibble::as_tibble(gss) %>%
 gss_calc <- gss_tbl %>%
   specify(college ~ sex, success = "no degree") %>%
   hypothesize(null = "independence") %>%
-  generate(reps = 1000) %>%
+  generate(reps = 1000, type = "permute") %>%
   calculate(stat = "diff in props", order = c("female", "male"))
 
 mtcars_df <- mtcars %>%
@@ -42,9 +42,9 @@ gss_permute <- gss_tbl %>%
 gss_viz_sim <- gss_permute %>% visualize(method = "simulation")
 
 # Warnings are about checking conditions for the theoretical method.
-gss_viz_theor <- suppressWarnings(
+gss_viz_theor <- suppressWarnings(suppressMessages(
   gss_permute %>% visualize(method = "theoretical")
-)
+))
 gss_viz_both <- suppressWarnings(
   gss_permute %>% visualize(method = "both")
 )

@@ -49,9 +49,9 @@ slopes <- mtcars_df %>%
 test_that("auto `type` works (hypothesize)", {
   expect_equal(attr(one_mean, "type"), "bootstrap")
   expect_equal(attr(one_median, "type"), "bootstrap")
-  expect_equal(attr(one_prop, "type"), "simulate")
+  expect_equal(attr(one_prop, "type"), "draw")
   expect_equal(attr(two_props, "type"), "permute")
-  expect_equal(attr(gof_chisq, "type"), "simulate")
+  expect_equal(attr(gof_chisq, "type"), "draw")
   expect_equal(attr(indep_chisq, "type"), "permute")
   expect_equal(attr(two_means, "type"), "permute")
   expect_equal(attr(two_medians, "type"), "permute")
@@ -195,9 +195,31 @@ test_that("sensible output", {
   expect_equal(class(one_mean)[1], "infer")
 })
 
+test_that("user can specify multiple explanatory variables", {
+  x <- 
+    gss %>% 
+    specify(hours ~ sex + college) %>%
+    hypothesize(null = "independence")
+  
+  expect_true(inherits(x, "infer"))
+  expect_true(inherits(explanatory_variable(x), "tbl_df"))
+  expect_true(inherits(explanatory_name(x), "character"))
+  expect_true(inherits(explanatory_expr(x), "call"))
+  
+  expect_equal(explanatory_name(x), c("sex", "college"))
+  expect_equal(response_name(x), "hours")
+  
+  expect_warning(
+    gss %>% 
+      specify(hours ~ sex + college) %>%
+      hypothesize(null = "independence", mu = 40),
+    "Parameter values are not specified when testing"
+  )
+})
 
 # is_hypothesized ---------------------------------------------------------
 test_that("is_hypothesized works", {
   expect_true(is_hypothesized(one_mean))
   expect_false(is_hypothesized(one_mean_specify))
 })
+

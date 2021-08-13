@@ -1,11 +1,10 @@
 context("get_p_value")
 
 set.seed(2018)
-test_df <- tibble::tibble(
-  stat = sample(c(
-    -5, -4, -4, -4, -1, -0.5, rep(0, 6), 1, 1, 3.999, 4, 4, 4.001, 5, 5
-  ))
-)
+test_df <- gss_calc[1:20,]
+test_df$stat <- sample(c(
+  -5, -4, -4, -4, -1, -0.5, rep(0, 6), 1, 1, 3.999, 4, 4, 4.001, 5, 5
+))
 
 test_that("direction is appropriate", {
   expect_error(test_df %>% get_p_value(obs_stat = 0.5, direction = "righ"))
@@ -50,6 +49,11 @@ test_that("get_p_value works", {
     get_p_value(test_df, 4, "both"),
     tolerance = eps
   )
+  expect_equal(
+    get_p_value(test_df, 4, "two.sided"), 
+    get_p_value(test_df, 4, "both"),
+    tolerance = eps
+  )
 })
 
 test_that("theoretical p-value not supported error", {
@@ -66,31 +70,385 @@ test_that("theoretical p-value not supported error", {
 })
 
 test_that("get_p_value warns in case of zero p-value", {
-  stat_df <- tibble::tibble(stat = 1:10)
-  
   expect_warning(
-    get_p_value(stat_df, obs_stat = -10, direction = "left"),
+    get_p_value(gss_calc, obs_stat = -10, direction = "left"),
     "be cautious"
   )
 })
 
 test_that("get_p_value throws error in case of `NaN` stat", {
-  stat_df <- tibble::tibble(stat = 1:10)
-  obs_stat <- 2.71
-  
-  stat_df$stat[1] <- NaN
+  gss_calc$stat[1] <- NaN
   expect_error(
-    get_p_value(stat_df, obs_stat, "both"),
+    get_p_value(gss_calc, 0, "both"),
     "1 calculated statistic was `NaN`.*not well-defined"
   )
   
-  stat_df$stat[2] <- NaN
+  gss_calc$stat[2] <- NaN
   expect_error(
-    get_p_value(stat_df, obs_stat, "both"),
+    get_p_value(gss_calc, 0, "both"),
     "2 calculated statistics were `NaN`.*not well-defined"
   )
   
   # In the case that _all_ values are NaN, error should have different text
-  stat_df$stat <- NaN
-  expect_error(get_p_value(stat_df, obs_stat, "both"), "All calculated stat")
+  gss_calc$stat <- NaN
+  expect_error(get_p_value(gss_calc, 0, "both"), "All calculated stat")
 })
+
+test_that("get_p_value can handle fitted objects", {
+  set.seed(1)
+  
+  null_fits <- gss[1:50,] %>%
+    specify(hours ~ age + college) %>%
+    hypothesize(null = "independence") %>%
+    generate(reps = 10, type = "permute") %>%
+    fit()
+  
+  obs_fit <- gss[1:50,] %>%
+    specify(hours ~ age + college) %>%
+    fit()
+  
+  expect_equivalent(
+    get_p_value(null_fits, obs_fit, "both"),
+    structure(
+      list(term = c("age", "collegedegree", "intercept"), 
+           p_value = c(0.6, 0.4, 0.6)), 
+      row.names = c(NA, -3L), 
+      class = c("tbl_df", "tbl", "data.frame")
+    )
+  )
+  
+  # errors out when it ought to
+  obs_fit_2 <- gss[1:50,] %>%
+    specify(hours ~ age) %>%
+    fit()
+  
+  expect_error(
+    get_p_value(null_fits, obs_fit_2, "both"),
+    "explanatory variables.*are not the same used"
+  )
+  
+  obs_fit_3 <- gss[1:50,] %>%
+    specify(year ~ age + college) %>%
+    fit()
+  
+  expect_error(
+    get_p_value(null_fits, obs_fit_3, "both"),
+    "response variable.*\\(hours\\) is not the same.*observed fit \\(year\\)."
+  )
+  
+  set.seed(1)
+  
+  null_fits_4 <- gss[1:50,] %>%
+    specify(hours ~ age) %>%
+    hypothesize(null = "independence") %>%
+    generate(reps = 10, type = "permute") %>%
+    fit()
+  
+  obs_fit_4 <- gss[1:50,] %>%
+    specify(hours ~ age) %>%
+    fit()
+  
+  obs_fit_4
+  
+  expect_equivalent(
+    get_p_value(null_fits_4, obs_fit_4, "both"),
+    structure(
+      list(
+        term = c("age", "intercept"), 
+        p_value = c(0.6, 0.6)), 
+      row.names = c(NA, -2L), 
+      class = c("tbl_df", "tbl", "data.frame")
+    )
+  )
+  
+  expect_equal(ncol(null_fits_4), ncol(obs_fit_4) + 1)
+  expect_equal(nrow(null_fits_4), nrow(obs_fit_4) * 10)
+  
+  expect_equal(ncol(obs_fit_4), ncol(obs_fit))
+  expect_equal(nrow(obs_fit_4), nrow(obs_fit) - 1)
+  
+  expect_true(is_fitted(obs_fit))
+  expect_true(is_fitted(obs_fit_2))
+  expect_true(is_fitted(obs_fit_3))
+  expect_true(is_fitted(obs_fit_4))
+  
+  expect_true(is_fitted(null_fits))
+  expect_true(is_fitted(null_fits_4))
+})
+
+test_that("get_p_value can handle bad args with fitted objects", {
+  set.seed(1)
+  
+  null_fits <- gss[1:50,] %>%
+    specify(hours ~ age + college) %>%
+    hypothesize(null = "independence") %>%
+    generate(reps = 10, type = "permute") %>%
+    fit()
+  
+  obs_fit <- gss[1:50,] %>%
+    specify(hours ~ age + college) %>%
+    fit()
+  
+  expect_error(
+    get_p_value(null_fits, "boop", "both"),
+    "should be the output of `fit\\(\\)`."
+  )
+  
+  expect_error(
+    get_p_value(null_fits, obs_fit$estimate, "both"),
+    "should be the output of `fit\\(\\)`."
+  )
+  
+  expect_error(
+    get_p_value(obs_fit, null_fits, "both"),
+    "be passed to `generate\\(\\)`"
+  )
+})
+
+test_that("get_p_value errors informatively when args are switched", {
+  # switch obs_stat and x
+  obs_stat <- gss %>%
+    specify(response = hours) %>%
+    calculate(stat = "mean")
+  
+  set.seed(1)
+  
+  null_dist <- gss %>%
+    specify(response = hours) %>%
+    hypothesize(null = "point", mu = 41) %>%
+    generate(reps = 20, type = "bootstrap") %>%
+    calculate(stat = "mean")
+  
+  expect_error(
+    get_p_value(obs_stat, null_dist, "both"),
+    "mistakenly switched the order of `obs_stat` and `x`"
+  )
+  
+  expect_silent(
+    get_p_value(null_dist, obs_stat, "both")
+  )
+})
+
+test_that("get_p_value can handle theoretical distributions", {
+  get_p_value_ <- function(x, obs_stat, direction) {
+    x <- get_p_value(x, obs_stat, direction)
+    
+    x$p_value
+  }
+  
+  # f ------------------------------------------------------------
+  # direction = "right" is the only valid one
+  f_dist <- 
+    gss %>% 
+    specify(age ~ partyid) %>%
+    hypothesize(null = "independence") %>%
+    assume(distribution = "F")
+  
+  f_obs <- 
+    gss %>% 
+    specify(age ~ partyid) %>%
+    calculate(stat = "F")
+  
+  expect_equal(
+    get_p_value_(f_dist, f_obs, direction = "right"),
+    0.06005251,
+    tolerance = 1e-3
+  )
+
+  old_way_f <- broom::tidy(aov(age ~ partyid, gss))
+  
+  expect_equal(
+    get_p_value_(f_dist, f_obs, direction = "right"),
+    old_way_f$p.value[[1]],
+    tolerance = 1e-3
+  )
+  
+  # t ------------------------------------------------------------
+  t_dist <- 
+    gss %>%
+    specify(response = hours) %>% 
+    hypothesize(null = "point", mu = 40) %>%
+    assume("t")
+  
+  t_obs <-
+    gss %>%
+    specify(response = hours) %>% 
+    hypothesize(null = "point", mu = 40) %>%
+    calculate(stat = "t")
+  
+  expect_equal(
+    get_p_value_(t_dist, t_obs, direction = "both"),
+    0.038,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(t_dist, t_obs, direction = "left"),
+    0.981,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(t_dist, t_obs, direction = "right"),
+    1 - get_p_value_(t_dist, t_obs, direction = "left"),
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(t_dist, t_obs, direction = "both"),
+    (1 - get_p_value_(t_dist, t_obs, direction = "left")) * 2,
+    tolerance = 1e-3
+  )
+
+  old_way_both <- t_test(gss, hours ~ NULL, mu = 40, alternative = "two.sided")
+  
+  expect_equal(
+    old_way_both$p_value, 
+    get_p_value_(t_dist, t_obs, direction = "both"),
+    tolerance = 1e-3
+  )
+  
+  old_way_left <- t_test(gss, hours ~ NULL, mu = 40, alternative = "less")
+  
+  expect_equal(
+    old_way_left$p_value, 
+    get_p_value_(t_dist, t_obs, direction = "left")
+  )
+  
+  old_way_right <- t_test(gss, hours ~ NULL, mu = 40, alternative = "greater")
+  
+  expect_equal(
+    old_way_right$p_value, 
+    get_p_value_(t_dist, t_obs, direction = "right")
+  )
+  
+  # chisq ------------------------------------------------------------
+  # direction = "right" is the only valid one
+  chisq_dist <- 
+    gss %>% 
+    specify(college ~ finrela) %>%
+    hypothesize(null = "independence") %>%
+    assume(distribution = "Chisq")
+  
+  chisq_obs <- 
+    gss %>% 
+    specify(college ~ finrela) %>%
+    calculate(stat = "Chisq")
+  
+  expect_equal(
+    get_p_value_(chisq_dist, chisq_obs, direction = "right"),
+    1.082094e-05,
+    tolerance = 1e-3
+  )
+
+  expect_warning(
+    old_way <- chisq_test(gss, college ~ finrela)
+  )
+  
+  expect_equal(
+    old_way$p_value, 
+    get_p_value_(chisq_dist, chisq_obs, direction = "right"),
+    tolerance = 1e-3
+  )
+  
+  # z ------------------------------------------------------------
+  z_dist <- 
+    gss %>%
+    specify(response = sex, success = "female") %>%
+    hypothesize(null = "point", p = .5) %>%
+    assume("z")
+  
+  z_obs <- 
+    gss %>%
+    specify(response = sex, success = "female") %>%
+    hypothesize(null = "point", p = .5) %>%
+    calculate(stat = "z")
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "both"),
+    0.244,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "left"),
+    0.122,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "right"),
+    1 - get_p_value_(z_dist, z_obs, direction = "left"),
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "both"),
+    (1 - get_p_value_(z_dist, z_obs, direction = "right")) * 2,
+    tolerance = 1e-3
+  )
+  
+  old_way_z_both <- prop_test(gss, sex ~ NULL, success = "female", p = .5, 
+                              alternative = "two.sided", z = TRUE)
+  old_way_z_left <- prop_test(gss, sex ~ NULL, success = "female", p = .5,
+                              alternative = "less", z = TRUE)
+  old_way_z_right <- prop_test(gss, sex ~ NULL, success = "female", p = .5, 
+                               alternative = "greater", z = TRUE)
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "both"),
+    old_way_z_both$p_value,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "left"),
+    old_way_z_left$p_value,
+    tolerance = 1e-3
+  )
+  
+  expect_equal(
+    get_p_value_(z_dist, z_obs, direction = "right"),
+    old_way_z_right$p_value,
+    tolerance = 1e-3
+  )
+})
+
+
+test_that("get_p_value warns with bad theoretical distributions", {
+  t_dist_40 <- 
+    gss %>%
+    specify(response = hours) %>% 
+    hypothesize(null = "point", mu = 40) %>%
+    assume("t")
+  
+  t_dist_30 <- 
+    gss %>%
+    specify(response = hours) %>% 
+    hypothesize(null = "point", mu = 30) %>%
+    assume("t")
+  
+  t_obs <-
+    gss %>%
+    specify(response = hours) %>% 
+    hypothesize(null = "point", mu = 40) %>%
+    calculate(stat = "t")
+  
+  expect_silent(
+    get_p_value(
+      t_dist_40,
+      t_obs,
+      direction = "both"
+    )
+  )
+  
+  expect_warning(
+    get_p_value(
+      t_dist_30,
+      t_obs,
+      direction = "both"
+    ),
+    "generated using different null hypotheses"
+  )
+})
+

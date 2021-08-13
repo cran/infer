@@ -2,7 +2,7 @@ context("shade_p_value")
 
 # shade_p_value -----------------------------------------------------------
 test_that("shade_p_value works", {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   # Adding `shade_p_value()` to simulation plot
   expect_doppelganger(
@@ -54,7 +54,7 @@ test_that("shade_p_value works", {
 })
 
 test_that("shade_p_value accepts synonyms for 'direction'", {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   expect_doppelganger(
     "pval-direction-right", gss_viz_sim + shade_p_value(1, "greater")
@@ -74,10 +74,13 @@ test_that("shade_p_value accepts synonyms for 'direction'", {
   expect_doppelganger(
     "pval-direction-both", gss_viz_sim + shade_p_value(1, "two sided")
   )
+  expect_doppelganger(
+    "pval-direction-both", gss_viz_sim + shade_p_value(1, "two.sided")
+  )
 })
 
 test_that("shade_p_value uses extra aesthetic", {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   expect_doppelganger(
     "pval-extra-aes-1",
@@ -94,7 +97,7 @@ test_that("shade_p_value uses extra aesthetic", {
 })
 
 test_that("shade_p_value accepts `NULL` as `obs_stat`",  {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   expect_doppelganger(
     "pval-null-obs_stat", gss_viz_sim + shade_p_value(NULL, "left")
@@ -102,7 +105,7 @@ test_that("shade_p_value accepts `NULL` as `obs_stat`",  {
 })
 
 test_that("shade_p_value throws errors", {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   expect_error(gss_viz_sim + shade_p_value("a", "right"), "numeric")
   expect_error(gss_viz_sim + shade_p_value(1, 1), "character")
@@ -128,7 +131,7 @@ test_that("shade_p_value throws errors", {
 
 # norm_direction ----------------------------------------------------------
 test_that("norm_direction works", {
-  skip_if(getRversion() > "4.0.2")
+  skip_if(getRversion() < "4.1.0")
   
   expect_equal(norm_direction("left"), "left")
   expect_equal(norm_direction("less"), "left")
@@ -138,4 +141,5 @@ test_that("norm_direction works", {
   expect_equal(norm_direction("two-sided"), "both")
   expect_equal(norm_direction("two_sided"), "both")
   expect_equal(norm_direction("two sided"), "both")
+  expect_equal(norm_direction("two.sided"), "both")
 })

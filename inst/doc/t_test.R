@@ -23,27 +23,26 @@ gss %>%
 # calculate the observed statistic
 observed_statistic <- gss %>%
   specify(response = hours) %>%
-  hypothesize(null = "point", mu = 40) %>%
-  calculate(stat = "t")
+  calculate(stat = "mean")
 
 ## ----generate-null-1-sample, warning = FALSE, message = FALSE-----------------
 # generate the null distribution
-null_distribution_1_sample <- gss %>%
+null_dist_1_sample <- gss %>%
   specify(response = hours) %>%
   hypothesize(null = "point", mu = 40) %>%
   generate(reps = 1000, type = "bootstrap") %>%
-  calculate(stat = "t")
+  calculate(stat = "mean")
 
 ## ----visualize-1-sample, warning = FALSE, message = FALSE---------------------
 # visualize the null distribution and test statistic!
-null_distribution_1_sample %>%
+null_dist_1_sample %>%
   visualize() + 
   shade_p_value(observed_statistic,
                 direction = "two-sided")
 
 ## ----p-value-1-sample, warning = FALSE, message = FALSE-----------------------
 # calculate the p value from the test statistic and null distribution
-p_value_1_sample <- null_distribution_1_sample %>%
+p_value_1_sample <- null_dist_1_sample %>%
   get_p_value(obs_stat = observed_statistic,
               direction = "two-sided")
 
@@ -52,8 +51,16 @@ p_value_1_sample
 ## ----t-test-wrapper, message = FALSE, warning = FALSE-------------------------
 t_test(gss, response = hours, mu = 40)
 
-## ----t-stat-wrapper, message = FALSE, warning = FALSE-------------------------
-t_stat(gss, response = hours, mu = 40)
+## -----------------------------------------------------------------------------
+# calculate the observed statistic
+observed_statistic <- gss %>%
+  specify(response = hours) %>%
+  hypothesize(null = "point", mu = 40) %>%
+  calculate(stat = "t") %>%
+  dplyr::pull()
+
+## -----------------------------------------------------------------------------
+pt(observed_statistic, df = nrow(gss) - 1, lower.tail = FALSE)*2
 
 ## ----plot-2-sample, echo = FALSE----------------------------------------------
 gss %>%
@@ -67,51 +74,29 @@ gss %>%
 # calculate the observed statistic
 observed_statistic <- gss %>%
   specify(hours ~ college) %>%
-  calculate(stat = "t", order = c("degree", "no degree"))
+  calculate(stat = "diff in means", order = c("degree", "no degree"))
 
 observed_statistic
 
 ## ----generate-null-2-sample, warning = FALSE, message = FALSE-----------------
 # generate the null distribution with randomization
-null_distribution_2_sample_permute <- gss %>%
+null_dist_2_sample <- gss %>%
   specify(hours ~ college) %>%
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
-  calculate(stat = "t", order = c("degree", "no degree"))
-
-## ----generate-null-2-sample-theoretical, warning = FALSE, message = FALSE-----
-# generate the null distribution with the theoretical t
-null_distribution_2_sample_theoretical <- gss %>%
-  specify(hours ~ college) %>%
-  hypothesize(null = "independence") %>%
-  # generate() isn't used for the theoretical version!
-  calculate(stat = "t", order = c("degree", "no degree"))
+  calculate(stat = "diff in means", order = c("degree", "no degree"))
 
 ## ----visualize-2-sample, warning = FALSE, message = FALSE---------------------
 # visualize the randomization-based null distribution and test statistic!
-null_distribution_2_sample_permute %>%
+null_dist_2_sample %>%
   visualize() + 
-  shade_p_value(observed_statistic,
-                direction = "two-sided")
-
-## ----visualize-2-sample-theoreticql, warning = FALSE, message = FALSE---------
-# visualize the theoretical null distribution and test statistic!
-null_distribution_2_sample_theoretical %>%
-  visualize(method = "theoretical") + 
-  shade_p_value(observed_statistic,
-                direction = "two-sided")
-
-## ----visualize-2-sample-both, warning = FALSE, message = FALSE----------------
-# visualize both null distributions and test statistic!
-null_distribution_2_sample_permute %>%
-  visualize(method = "both") + 
   shade_p_value(observed_statistic,
                 direction = "two-sided")
 
 ## ----p-value-2-sample, warning = FALSE, message = FALSE-----------------------
 # calculate the p value from the randomization-based null 
 # distribution and the observed statistic
-p_value_2_sample <- null_distribution_2_sample_permute %>%
+p_value_2_sample <- null_dist_2_sample %>%
   get_p_value(obs_stat = observed_statistic,
               direction = "two-sided")
 
@@ -122,4 +107,17 @@ t_test(x = gss,
        formula = hours ~ college, 
        order = c("degree", "no degree"),
        alternative = "two-sided")
+
+## -----------------------------------------------------------------------------
+# calculate the observed statistic
+observed_statistic <- gss %>%
+  specify(hours ~ college) %>%
+  hypothesize(null = "point", mu = 40) %>%
+  calculate(stat = "t", order = c("degree", "no degree")) %>%
+  dplyr::pull()
+
+observed_statistic
+
+## -----------------------------------------------------------------------------
+pt(observed_statistic, df = nrow(gss) - 2, lower.tail = FALSE)*2
 

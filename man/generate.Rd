@@ -4,15 +4,21 @@
 \alias{generate}
 \title{Generate resamples, permutations, or simulations}
 \usage{
-generate(x, reps = 1, type = NULL, ...)
+generate(x, reps = 1, type = NULL, variables = !!response_expr(x), ...)
 }
 \arguments{
 \item{x}{A data frame that can be coerced into a \link[tibble:tibble]{tibble}.}
 
 \item{reps}{The number of resamples to generate.}
 
-\item{type}{Currently either \code{bootstrap}, \code{permute}, or \code{simulate}
-(see below).}
+\item{type}{The method used to generate resamples of the observed
+data reflecting the null hypothesis. Currently one of
+\code{"bootstrap"}, \code{"permute"}, or \code{"draw"} (see below).}
+
+\item{variables}{If \code{type = "permute"}, a set of unquoted column names in the
+data to permute (independently of each other). Defaults to only the
+response variable. Note that any derived effects that depend on these
+columns (e.g., interaction effects) will also be affected.}
 
 \item{...}{Currently ignored.}
 }
@@ -21,8 +27,11 @@ A tibble containing \code{reps} generated datasets, indicated by the
 \code{replicate} column.
 }
 \description{
-Generation creates a null distribution from \code{\link[=specify]{specify()}} and (if needed)
-\code{\link[=hypothesize]{hypothesize()}} inputs.
+Generation creates a simulated distribution from \code{specify()}.
+In the context of confidence intervals, this is a bootstrap distribution
+based on the result of \code{specify()}. In the context of hypothesis testing,
+this is a null distribution based on the result of \code{specify()} and
+\verb{hypothesize().}
 
 Learn more in \code{vignette("infer")}.
 }
@@ -38,29 +47,38 @@ where a sample of size equal to the input sample size is drawn (with
 replacement) from the input sample data.
 \item \code{permute}: For each replicate, each input value will be randomly
 reassigned (without replacement) to a new output value in the sample.
-\item \code{simulate}: A value will be sampled from a theoretical distribution
-with parameters specified in \code{\link[=hypothesize]{hypothesize()}} for each replicate. (This
-option is currently only applicable for testing point estimates.)
+\item \code{draw}: A value will be sampled from a theoretical distribution
+with parameters specified in \code{\link[=hypothesize]{hypothesize()}} for each replicate. This
+option is currently only applicable for testing point estimates. This
+generation type was previously called \code{"simulate"}, which has been
+superseded.
 }
 }
 
 \examples{
-# Generate a null distribution by taking 200 bootstrap samples
+# generate a null distribution by taking 200 bootstrap samples
 gss \%>\%
  specify(response = hours) \%>\%
  hypothesize(null = "point", mu = 40) \%>\%
  generate(reps = 200, type = "bootstrap")
 
-# Generate a null distribution for the independence of
+# generate a null distribution for the independence of
 # two variables by permuting their values 1000 times
 gss \%>\%
  specify(partyid ~ age) \%>\%
  hypothesize(null = "independence") \%>\%
  generate(reps = 200, type = "permute")
 
-# More in-depth explanation of how to use the infer package
+# more in-depth explanation of how to use the infer package
 \dontrun{
 vignette("infer")
 }
 
 }
+\seealso{
+Other core functions: 
+\code{\link{calculate}()},
+\code{\link{hypothesize}()},
+\code{\link{specify}()}
+}
+\concept{core functions}

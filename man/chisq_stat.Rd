@@ -26,7 +26,8 @@ explanatory variable.}
 \details{
 A shortcut wrapper function to get the observed test statistic for a chisq
 test. Uses \link[stats:chisq.test]{chisq.test()}, which applies a continuity
-correction.
+correction. This function has been deprecated in favor of the more
+general \code{\link[=observe]{observe()}}.
 }
 \examples{
 # chi-squared test statistic for test of independence
@@ -47,3 +48,17 @@ chisq_stat(gss,
                  "DK" = 1/6))
 
 }
+\seealso{
+Other wrapper functions: 
+\code{\link{chisq_test}()},
+\code{\link{observe}()},
+\code{\link{prop_test}()},
+\code{\link{t_stat}()},
+\code{\link{t_test}()}
+
+Other functions for calculating observed statistics: 
+\code{\link{observe}()},
+\code{\link{t_stat}()}
+}
+\concept{functions for calculating observed statistics}
+\concept{wrapper functions}

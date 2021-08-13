@@ -19,22 +19,31 @@ output from \code{\link[=hypothesize]{hypothesize()}} piped in to here for theor
 
 \item{stat}{A string giving the type of the statistic to calculate. Current
 options include \code{"mean"}, \code{"median"}, \code{"sum"}, \code{"sd"}, \code{"prop"}, \code{"count"},
-\code{"diff in means"}, \code{"diff in medians"}, \code{"diff in props"}, \code{"Chisq"},
-\code{"F"}, \code{"t"}, \code{"z"}, \code{"ratio of props"}, \code{"slope"}, and \code{"correlation"}.}
+\code{"diff in means"}, \code{"diff in medians"}, \code{"diff in props"}, \code{"Chisq"} (or
+\code{"chisq"}), \code{"F"} (or \code{"f"}), \code{"t"}, \code{"z"}, \code{"ratio of props"}, \code{"slope"},
+\code{"odds ratio"}, and \code{"correlation"}. \code{infer} only supports theoretical
+tests on one or two means via the \code{"t"} distribution and one or two
+proportions via the \code{"z"}.}
 
 \item{order}{A string vector of specifying the order in which the levels of
-the explanatory variable should be ordered for subtraction, where \code{order = c("first", "second")} means \code{("first" - "second")} Needed for inference on
-difference in means, medians, or proportions and t and z statistics.}
+the explanatory variable should be ordered for subtraction (or division
+for ratio-based statistics), where \code{order = c("first", "second")} means
+\code{("first" - "second")}, or the analogue for ratios. Needed for inference on
+difference in means, medians, proportions, ratios, t, and z statistics.}
 
 \item{...}{To pass options like \code{na.rm = TRUE} into functions like
-\link[base:mean]{mean()}, \link[stats:sd]{sd()}, etc.}
+\link[base:mean]{mean()}, \link[stats:sd]{sd()}, etc. Can also be used to
+supply hypothesized null values for the \code{"t"} statistic.}
 }
 \value{
 A tibble containing a \code{stat} column of calculated statistics.
 }
 \description{
-Calculates summary statistics from outputs of \code{\link[=generate]{generate()}} or
-\code{\link[=hypothesize]{hypothesize()}}.
+Given the output of \code{\link[=specify]{specify()}} and/or \code{\link[=hypothesize]{hypothesize()}}, this function will
+return the observed statistic specified with the \code{stat} argument. Some test
+statistics, such as \code{Chisq}, \code{t}, and \code{z}, require a null hypothesis. If
+provided the output of \code{\link[=generate]{generate()}}, the function will calculate the
+supplied \code{stat} for each \code{replicate}.
 
 Learn more in \code{vignette("infer")}.
 }
@@ -56,6 +65,11 @@ gss \%>\%
   hypothesize(null = "point", mu = 40) \%>\%
   generate(reps = 200, type = "bootstrap") \%>\%
   calculate(stat = "mean")
+  
+# calculate the corresponding observed statistic
+gss \%>\%
+  specify(response = hours) \%>\%
+  calculate(stat = "mean")
 
 # calculate a null distribution assuming independence between age
 # of respondent and whether they have a college degree
@@ -64,10 +78,31 @@ gss \%>\%
   hypothesize(null = "independence") \%>\%
   generate(reps = 200, type = "permute") \%>\%
   calculate("diff in means", order = c("degree", "no degree"))
-
-# More in-depth explanation of how to use the infer package
+  
+# calculate the corresponding observed statistic
+gss \%>\%
+  specify(age ~ college) \%>\%
+  calculate("diff in means", order = c("degree", "no degree"))
+  
+# some statistics require a null hypothesis
+ gss \%>\%
+   specify(response = hours) \%>\% 
+   hypothesize(null = "point", mu = 40) \%>\%
+   calculate(stat = "t")
+   
+# more in-depth explanation of how to use the infer package
 \dontrun{
 vignette("infer")
 }
 
 }
+\seealso{
+\code{\link[=visualize]{visualize()}}, \code{\link[=get_p_value]{get_p_value()}}, and \code{\link[=get_confidence_interval]{get_confidence_interval()}}
+to extract value from this function's outputs.
+
+Other core functions: 
+\code{\link{generate}()},
+\code{\link{hypothesize}()},
+\code{\link{specify}()}
+}
+\concept{core functions}

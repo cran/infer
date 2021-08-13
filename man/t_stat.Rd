@@ -47,6 +47,7 @@ interval or not. \code{TRUE} by default.}
 }
 \description{
 A shortcut wrapper function to get the observed test statistic for a t test.
+This function has been deprecated in favor of the more general \code{\link[=observe]{observe()}}.
 }
 \examples{
 library(tidyr)
@@ -65,3 +66,17 @@ gss \%>\%
       alternative = "two-sided")
 
 }
+\seealso{
+Other wrapper functions: 
+\code{\link{chisq_stat}()},
+\code{\link{chisq_test}()},
+\code{\link{observe}()},
+\code{\link{prop_test}()},
+\code{\link{t_test}()}
+
+Other functions for calculating observed statistics: 
+\code{\link{chisq_stat}()},
+\code{\link{observe}()}
+}
+\concept{functions for calculating observed statistics}
+\concept{wrapper functions}

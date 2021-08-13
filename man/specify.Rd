@@ -47,9 +47,16 @@ gss \%>\%
 gss \%>\%
   specify(response = age, explanatory = partyid)
 
-# More in-depth explanation of how to use the infer package
+# more in-depth explanation of how to use the infer package
 \dontrun{
 vignette("infer")
 }
 
 }
+\seealso{
+Other core functions: 
+\code{\link{calculate}()},
+\code{\link{generate}()},
+\code{\link{hypothesize}()}
+}
+\concept{core functions}

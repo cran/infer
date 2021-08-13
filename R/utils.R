@@ -1,3 +1,4 @@
+# Miscellaneous Helpers -----------------------------------------------
 append_infer_class <- function(x) {
   x_cl <- class(x)
   if (x_cl[1] != "infer") {
@@ -9,8 +10,23 @@ append_infer_class <- function(x) {
 
 format_params <- function(x) {
   par_levels <- get_par_levels(x)
-  fct_levels <- as.character(unique(dplyr::pull(x, !!attr(x, "response"))))
+  fct_levels <- as.character(unique(response_variable(x)))
   attr(x, "params")[match(fct_levels, par_levels)]
+}
+
+print_params <- function(x) {
+  params <- attr(x, "params")
+  
+  switch(
+    as.character(length(params)),
+    "1" = glue_null(": `{names(params)} = {unname(params)}`"),
+    "2" = glue_null(": `p = .5`"),
+          glue_null("s: `p = c({put_params(x, params)})`")
+  )
+}
+
+put_params <- function(x, params) {
+  paste0(get_par_levels(x), " = ", params, collapse = ", ")
 }
 
 get_par_levels <- function(x) {
@@ -22,17 +38,14 @@ copy_attrs <- function(to, from,
                        attrs = c(
                          "response", "success", "explanatory", "response_type",
                          "explanatory_type", "distr_param", "distr_param2",
-                         "null", "params", "theory_type", "generate", "type"
+                         "null", "params", "theory_type", "generated", "type",
+                         "hypothesized", "formula", "fitted"
                        )) {
   for (at in attrs) {
     attr(to, at) <- attr(from, at)
   }
 
   to
-}
-
-is_nuat <- function(x, at) {
-  is.null(attr(x, at))
 }
 
 # Wrapper for deduplication by name after doing `c(...)`
@@ -48,37 +61,113 @@ c_dedupl <- function(...) {
   }
 }
 
-explanatory_variable <- function(x) {
-  x[[as.character(attr(x, "explanatory"))]]
-}
-
-# Other places in the code use
-# dplyr::pull(x, !!attr(x, "response"))
-# which seems to do the same thing
-response_variable <- function(x) {
-  x[[as.character(attr(x, "response"))]]
-}
-
 reorder_explanatory <- function(x, order) {
-  x[[as.character(attr(x, "explanatory"))]] <- factor(
+  x[[explanatory_name(x)]] <- factor(
     explanatory_variable(x),
     levels = c(order[1], order[2])
   )
   x
 }
 
+# Getters, setters, and indicators ------------------------------------------
+explanatory_expr <- function(x) {
+  attr(x, "explanatory")
+}
+
+explanatory_name <- function(x) {
+  all.vars(explanatory_expr(x))
+}
+
+# if there is more than one explanatory variable, return a data frame.
+# if there's one, return a vector. otherwise, return NULL.
+explanatory_variable <- function(x) {
+  if (!is.null(explanatory_expr(x))) {
+    if (length(explanatory_name(x)) > 1) {
+      x[explanatory_name(x)]
+    } else {
+      x[[explanatory_name(x)]]
+    }
+  } else {
+    NULL
+  }
+}
+
+response_expr <- function(x) {
+  attr(x, "response")
+}
+
+response_name <- function(x) {
+  as.character(response_expr(x))
+}
+
+response_variable <- function(x) {
+  x[[response_name(x)]]
+}
+
+theory_type <- function(x) {
+  attr(x, "theory_type")
+}
+
+get_response_levels <- function(x) {
+  as.character(unique(response_variable(x)))
+}
+
+get_success_then_response_levels <- function(x) {
+  success_attr <- attr(x, "success")
+  response_levels <- setdiff(
+    get_response_levels(x),
+    success_attr
+  )
+  c(success_attr, response_levels)
+}
+
+is_generated <- function(x) {
+  isTRUE(attr(x, "generated"))
+}
+
+is_hypothesized <- function(x){
+  isTRUE(attr(x, "hypothesized"))
+}
+
+is_fitted <- function(x){
+  isTRUE(attr(x, "fitted"))
+}
+
+is_mlr <- function(x) {
+  length(explanatory_name(x)) > 1
+}
+
+has_attr <- function(x, at) {
+  !is.null(attr(x, at, exact = TRUE))
+}
+
 has_explanatory <- function(x) {
-  !is_nuat(x, "explanatory")
+  has_attr(x, "explanatory")
 }
 
 has_response <- function(x) {
-  !is_nuat(x, "response")
+  has_attr(x, "response")
 }
 
 is_color_string <- function(x) {
   rlang::is_string(x) &&
     tryCatch(is.matrix(grDevices::col2rgb(x)), error = function(e) {FALSE})
 }
+
+is_single_number <- function(x, min_val = -Inf, max_val = Inf,
+                             include_min_val = TRUE, include_max_val = TRUE) {
+  left_compare <- if (include_min_val) {`>=`} else {`>`}
+  right_compare <- if (include_max_val) {`<=`} else {`<`}
+
+  is.numeric(x) && (length(x) == 1) && is.finite(x) &&
+    left_compare(x, min_val) && right_compare(x, max_val)
+}
+
+is_truefalse <- function(x) {
+  identical(x, TRUE) || identical(x, FALSE)
+}
+
+# Messaging, warning, and erroring ------------------------------------------
 
 stop_glue <- function(..., .sep = "", .envir = parent.frame(),
                       call. = FALSE, .domain = NULL) {
@@ -120,14 +209,136 @@ null_transformer <- function(text, envir) {
   out
 }
 
-check_order <- function(x, explanatory_variable, order, in_calculate = TRUE) {
-  unique_ex <- sort(unique(explanatory_variable))
-  if (length(unique_ex) != 2) {
-    stop_glue(
-      "Statistic is based on a difference or ratio; the explanatory variable ", 
-      "should have two levels."
-    )
+# Helpers for test statistics --------------------------------------
+
+# Simplify and standardize checks by grouping statistics based on variable types
+# num = numeric, bin = binary (dichotomous), mult = multinomial
+stat_types <- tibble::tribble(
+  ~resp,   ~exp,   ~stats,
+  "num",   "",     c("mean", "median", "sum", "sd", "t"),
+  "num",   "num",  c("slope", "correlation"),
+  "num",   "bin",  c("diff in means", "diff in medians", "t"),
+  "num",   "mult", c("F"),
+  "bin",   "",     c("prop", "count", "z"),
+  "bin",   "bin",  c("diff in props", "z", "ratio of props", "odds ratio", "Chisq"),
+  "bin",   "mult", c("Chisq"),
+  "mult",  "bin",  c("Chisq"),
+  "mult",  "",     c("Chisq"),
+  "mult",  "mult", c("Chisq"),
+)
+
+stat_type_desc <- tibble::tribble(
+  ~type,  ~description,
+  "num",  "numeric",
+  "bin",  "dichotomous categorical",
+  "mult", "multinomial categorical"
+)
+
+get_stat_type_desc <- function(stat_type) {
+  stat_type_desc$description[stat_type_desc$type == stat_type]
+}
+
+stat_desc <- tibble::tribble(
+  ~stat,               ~description,
+  "mean",              "A mean",
+  "median",            "A median", 
+  "sum",               "A sum",
+  "sd",                "A standard deviation",
+  "prop",              "A proportion", 
+  "count",             "A count", 
+  "diff in means",     "A difference in means", 
+  "diff in medians",   "A difference in medians", 
+  "diff in props",     "A difference in proportions", 
+  "Chisq",             "A chi-square statistic", 
+  "F",                 "An F statistic", 
+  "slope",             "A slope", 
+  "correlation",       "A correlation", 
+  "t",                 "A t statistic", 
+  "z",                 "A z statistic", 
+  "ratio of props",    "A ratio of proportions",  
+  "odds ratio",        "An odds ratio" 
+)
+
+get_stat_desc <- function(stat) {
+  stat_desc$description[stat_desc$stat == stat]
+}
+
+# Values of `stat` argument of `calculate()`
+implemented_stats <-  c(
+  "mean", "median", "sum", "sd", "prop", "count",
+  "diff in means", "diff in medians", "diff in props",
+  "Chisq", "F", "slope", "correlation", "t", "z",
+  "ratio of props", "odds ratio"
+)
+
+implemented_stats_aliases <- tibble::tribble(
+  ~ alias, ~ target,
+  # Allow case insensitive stat names
+  "f",     "F",
+  "chisq", "Chisq"
+)
+
+untheorized_stats <- implemented_stats[!implemented_stats %in% c(
+  "Chisq", "F", "t", "z"
+)]
+
+# Given a statistic and theory type, assume a reasonable null
+p_null <- function(x) {
+  lvls <- levels(response_variable(x))
+  num_lvls <- length(lvls)
+  probs <- 1 / num_lvls
+  
+  setNames(rep(probs, num_lvls), paste0("p.", lvls))
+}
+
+# The "null_fn" column is a function(x) whose output gives attr(x, "params")
+theorized_nulls <- tibble::tribble(
+  ~stat,    ~null_fn,
+  "Chisq", p_null,
+  "t",     function(x) {setNames(0, "mu")},
+  "z",     p_null
+)
+
+determine_variable_type <- function(x, variable) {
+  var <- switch(
+    variable,
+    response = response_variable(x),
+    explanatory = explanatory_variable(x)
+  )
+  
+  if (is.null(var)) {
+    ""
+  } else if (inherits(var, "numeric")) {
+    "num"
+  } else if (length(unique(var)) == 2) {
+    "bin"
+  } else {
+    "mult"
   }
+}
+
+# Argument checking --------------------------------------------------------
+
+check_order <- function(x, order, in_calculate = TRUE, stat) {
+  # If there doesn't need to be an order argument, warn if there is one,
+  # and otherwise, skip checks
+  if (!(theory_type(x) %in% c("Two sample props z", "Two sample t") ||
+        is.null(stat) ||
+        stat %in% c("diff in means", "diff in medians", 
+                    "diff in props", "ratio of props", "odds ratio"))) {
+    if (!is.null(order)) {
+       warning_glue(
+        "Statistic is not based on a difference or ratio; the `order` argument ",
+        "will be ignored. Check `?calculate` for details."
+      )
+    } else {
+      return(order)
+    }
+  } 
+  
+  explanatory_variable <- explanatory_variable(x)
+  unique_ex <- sort(unique(explanatory_variable))
+  
   if (is.null(order) & in_calculate) {
     # Default to subtracting/dividing the first (alphabetically) level by the 
     # second, unless the explanatory variable is a factor (in which case order 
@@ -171,76 +382,6 @@ check_order <- function(x, explanatory_variable, order, in_calculate = TRUE) {
   order
 }
 
-check_args_and_attr <- function(x, explanatory_variable, response_variable,
-                                stat) {
-  # Could also do `stat <- match.arg(stat)`
-  # but that's not as helpful to beginners with the cryptic error msg
-  if (
-    !stat %in% c(
-      "mean", "median", "sum", "sd", "prop", "count", "diff in means",
-      "diff in medians", "diff in props", "Chisq", "F", "slope", "correlation",
-      "t", "z", "ratio of props", "odds ratio"
-    )
-  ) {
-    stop_glue(
-      "You specified a string for `stat` that is not implemented. ",
-      "Check your spelling and `?calculate` for current options."
-    )
-  }
-
-  if (!("replicate" %in% names(x)) && !is_nuat(x, "generate")) {
-    warning_glue(
-      'A `generate()` step was not performed prior to `calculate()`. ',
-      'Review carefully.'
-    )
-  }
-
-  if (stat %in% c("F", "slope", "diff in means", "diff in medians")) {
-    if (has_explanatory(x) && !is.numeric(response_variable(x))) {
-      stop_glue(
-        'The response variable of `{attr(x, "response")}` is not appropriate\n',
-        "since '{stat}' is expecting the response variable to be numeric."
-      )
-    }
-  }
-
-  if (stat %in% c("diff in props", "ratio of props", "Chisq", "odds ratio")) {
-    if (has_explanatory(x) && !is.factor(response_variable(x))) {
-      stop_glue(
-        'The response variable of `{attr(x, "response")}` is not appropriate\n',
-        "since '{stat}' is expecting the response variable to be a factor."
-      )
-    }
-  }
-
-}
-
-check_for_numeric_stat <- function(x, stat) {
-  if (stat %in% c("mean", "median", "sum", "sd")) {
-    col <- base::setdiff(names(x), "replicate")
-
-    if (!is.numeric(x[[as.character(col)]])) {
-      stop_glue(
-        "Calculating a {stat} here is not appropriate\n",
-        "since the `{col}` variable is not numeric."
-      )
-    }
-  }
-}
-
-check_for_factor_stat <- function(x, stat, explanatory_variable) {
-  if (stat %in% c("diff in means", "diff in medians", "diff in props", 
-                  "F", "ratio of props", "odds ratio")) {
-    if (!is.factor(explanatory_variable)) {
-      stop_glue(
-        'The explanatory variable of `{attr(x, "explanatory")}` is not ',
-        "appropriate\n",
-        "since '{stat}` is expecting the explanatory variable to be a factor."
-      )
-    }
-  }
-}
-
 check_point_params <- function(x, stat) {
   param_names <- attr(attr(x, "params"), "names")
   hyp_text <- 'to be set in `hypothesize()`.'
@@ -258,18 +399,6 @@ check_point_params <- function(x, stat) {
       if (!(stat == "median") && ("med" %in% param_names)) {
         stop_glue('`"med"` does not correspond to `stat = "{stat}"`.')
       }
-      ## Tests unable to get to
-      # if ((stat == "sigma") && !("sd" %in% param_names)) {
-      #   stop_glue('`stat == "sd"` requires `"sigma"` {hyp_text}')
-      # }
-      if (!(stat == "sd") && ("sigma" %in% param_names)) {
-        stop_glue('`"sigma"` does not correspond to `stat = "{stat}"`.')
-      }
-
-      ## Tests unable to get to
-      # if ((stat == "prop") && !any(grepl("p.", param_names))) {
-      #   stop_glue('`stat == "prop"` requires `"p"` {hyp_text}')
-      # }
     }
   }
 }
@@ -277,6 +406,10 @@ check_point_params <- function(x, stat) {
 # This function checks for NaNs in the output of `calculate` and raises
 # a message/warning/error depending on the context in which it was called.
 check_for_nan <- function(x, context) {
+  if (inherits(x, "infer_dist")) {
+    return(x)
+  }
+  
   stat_is_nan <- is.nan(x[["stat"]])
   num_nans <- sum(stat_is_nan)
   # If there are no NaNs, continue on as normal :-)
@@ -308,135 +441,39 @@ check_for_nan <- function(x, context) {
   }
 }
 
-has_unused_levels <- function(x) {
-  if (is.factor(x)) {
-    present_levels <- unique(as.character(x))
-    unused_levels <- setdiff(levels(x), present_levels)
-
-    length(unused_levels) > 0
-  } else {
-    FALSE
-  }
-}
-
-# Helpers for hypothesize() -----------------------------------------------
-
-match_null_hypothesis <- function(null) {
-  null_hypothesis_types <- c("point", "independence")
-  if(length(null) != 1) {
-    stop_glue('You should specify exactly one type of null hypothesis.')
-  }
-  i <- pmatch(null, null_hypothesis_types)
-  if(is.na(i)) {
-    stop_glue('`null` should be either "point" or "independence".')
-  }
-  null_hypothesis_types[i]
-}
-
-sanitize_hypothesis_params_independence <- function(dots) {
-  if (length(dots) > 0) {
-    warning_glue(
-      "Parameter values are not specified when testing that two variables are ",
-      "independent."
-    )
-  }
-  NULL
-}
-
-sanitize_hypothesis_params_point <- function(dots, x) {
-  if(length(dots) != 1) {
-    stop_glue("You must specify exactly one of `p`, `mu`, `med`, or `sigma`.")
-  }
-  if (!is.null(dots$p)) {
-    dots$p <- sanitize_hypothesis_params_proportion(dots$p, x)
-  }
-  dots
-}
-
-sanitize_hypothesis_params_proportion <- function(p, x) {
-  eps <- if (capabilities("long.double")) {sqrt(.Machine$double.eps)} else {0.01}
-  if(anyNA(p)) {
-    stop_glue('`p` should not contain missing values.')
-  }
-  if(any(p < 0 | p > 1)) {
-    stop_glue('`p` should only contain values between zero and one.')
-  }
-  if(length(p) == 1) {
-    if(is_nuat(x, "success")) {
-      stop_glue(
-        "A point null regarding a proportion requires that `success` ",
-        "be indicated in `specify()`."
-      )
-    }
-    p <- c(p, 1 - p)
-    names(p) <- get_success_then_response_levels(x)
-  } else {
-    if (sum(p) < 1 - eps | sum(p) > 1 + eps) {
-      stop_glue(
-        "Make sure the hypothesized values for the `p` parameters sum to 1. ",
-        "Please try again."
-      )
-    }
-  }
-  p
-}
-
-
-get_response_levels <- function(x) {
-  as.character(unique(response_variable(x)))
-}
-
-get_success_then_response_levels <- function(x) {
-  success_attr <- attr(x, "success")
-  response_levels <- setdiff(
-    get_response_levels(x),
-    success_attr
-  )
-  c(success_attr, response_levels)
-}
-
-hypothesize_checks <- function(x, null) {
-  # error: x is not a dataframe
-  if (!sum(class(x) %in% c("data.frame", "tbl", "tbl_df", "grouped_df"))) {
-    stop_glue("x must be a data.frame or tibble")
-  }
-
-  if (!has_response(x)) {
-    stop_glue(
-      "The response variable is not set. Make sure to `specify()` it first."
-    )
-  }
-
-  if ((null == "independence") && !has_explanatory(x)) {
-    stop_glue(
-      'Please `specify()` an explanatory and a response variable when ',
-      'testing\n',
-      'a null hypothesis of `"independence"`.'
-    )
-  }
-}
-
 check_direction <- function(direction = c("less", "greater", "two_sided",
                                           "left", "right", "both",
-                                          "two-sided", "two sided")) {
+                                          "two-sided", "two sided", 
+                                          "two.sided")) {
   check_type(direction, is.character)
 
   if (
     !(direction %in% c("less", "greater", "two_sided", "left", "right", 
-                       "both", "two-sided", "two sided"))
+                       "both", "two-sided", "two sided", "two.sided"))
   ) {
     stop_glue(
       'The provided value for `direction` is not appropriate. Possible values ',
       'are "less", "greater", "two-sided", "left", "right", "both", ',
-      '"two_sided", or "two sided"'
+      '"two_sided", "two sided", or "two.sided".'
     )
   }
 }
 
-check_obs_stat <- function(obs_stat) {
+check_obs_stat <- function(obs_stat, plot = NULL) {
   if (!is.null(obs_stat)) {
     
     if ("data.frame" %in% class(obs_stat)) {
+      if (is_fitted(obs_stat)) {
+        x_lab <- x_axis_label(plot)
+        
+        obs_stat <- 
+          obs_stat %>% 
+          dplyr::filter(term == x_lab) %>% 
+          dplyr::pull(estimate)
+        
+        return(obs_stat)
+      }
+      
       check_type(obs_stat, is.data.frame)
       if ((nrow(obs_stat) != 1) || (ncol(obs_stat) != 1)) {
         warning_glue(
@@ -456,38 +493,90 @@ check_obs_stat <- function(obs_stat) {
   obs_stat
 }
 
+check_mlr_x_and_obs_stat <- function(x, obs_stat, fn, arg) {
+  if (!is_fitted(obs_stat)) {
+    stop_glue(
+      "The `{arg}` argument should be the output of `fit()`. ",
+      "See the documentation with `?{fn}`."
+    )
+  }
+  
+  if (!is_generated(x)) {
+    stop_glue(
+      "The `x` argument needs to be passed to `generate()` ",
+      "before `fit()`."
+    )
+  }
+  
+  if (any(!unique(x$term) %in% unique(obs_stat$term)) ||
+      any(!unique(obs_stat$term) %in% unique(x$term))) {
+    stop_glue(
+      "The explanatory variables used to generate the distribution of ",
+      "null fits are not the same used to fit the observed data."
+    )
+  }
+  
+  if (response_name(x) != response_name(obs_stat)) {
+    stop_glue(
+      "The response variable of the null fits ({response_name(x)}) is not ",
+      "the same as that of the observed fit ({response_name(obs_stat)})."
+    )
+  }
+  
+  invisible(TRUE)
+}
+
 #' Check object type
 #'
 #' Throw an error in case object is not of desired type.
 #'
 #' @param x An object to check.
-#' @param predicate A function to perform check. A good idea is to use function
-#'   named `is.*()` or `is_*()` with possible `<package>::` prefix.
-#' @param type A string for desired type. If `NULL`, type is taken from parsing
-#'   original name of supplied `predicate`: all alphanumeric with '_' and '.'
-#'   characters (until the name end) after the first appearance of either `is.`
-#'   or `is_`. In case of a doubt supply `type` explicitly.
+#' @param predicate A function to perform check or a formula (as input for
+#'   `rlang::as_function()`). A good idea is to use function named `is.*()` or
+#'   `is_*()` with possible `<package>::` prefix.
+#' @param type_name A string for desired type name. If `NULL`, type is taken
+#'   from parsing original name of supplied `predicate`: all alphanumeric with
+#'   '_' and '.' characters (until the name end) after the first appearance of
+#'   either `is.` or `is_`. In case of a doubt supply `type_name` explicitly.
+#' @param x_name String to be used as variable name instead of supplied one
+#'   (default).
+#' @param allow_null If `TRUE` then error isn't thrown if `x` is `NULL`, no
+#'   matter what `predicate(x)` returns.
+#' @param ... Arguments to be passed to `predicate`.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' x <- 1
 #' check_type(x, is.numeric)
 #' check_type(x, is.logical)
 #' check_type(x, rlang::is_string, "character of length 1")
+#' check_type(
+#'   x,
+#'   ~ is.character(.) && (length(.) == 1),
+#'   "character of length 1"
+#' )
 #' }
 #'
 #' @keywords internal
 #' @noRd
-check_type <- function(x, predicate, type = NULL) {
-  x_name <- deparse(rlang::enexpr(x))
-  if (is.null(type)) {
-    predicate_name <- deparse(rlang::enexpr(predicate))
-    type <- parse_type(predicate_name)
+check_type <- function(x, predicate, type_name = NULL, x_name = NULL,
+                        allow_null = FALSE, ...) {
+  if (is.null(x_name)) {
+    x_name <- deparse(substitute(x))
   }
 
-  if (!isTRUE(predicate(x))) {
+  if (is.null(type_name)) {
+    predicate_name <- deparse(rlang::enexpr(predicate))
+    type_name <- parse_type(predicate_name)
+  }
+
+  predicate <- rlang::as_function(predicate)
+
+  is_pred_true <- (allow_null && is.null(x)) || isTRUE(predicate(x, ...))
+
+  if (!is_pred_true) {
     # Not using "must be of type" because of 'tibble' and 'string' cases
-    stop_glue("`{x_name}` must be '{type}', not '{get_type(x)}'.")
+    stop_glue("`{x_name}` must be '{type_name}', not '{get_type(x)}'.")
   }
 
   x
@@ -503,31 +592,23 @@ get_type <- function(x) {
 }
 
 parse_type <- function(f_name) {
-  regmatches(
+  res <- regmatches(
     f_name,
     regexec("is[_\\.]([[:alnum:]_\\.]+)$", f_name)
   )[[1]][2]
+
+  if (is.na(res)) {
+    res <- f_name
+  }
+
+  res
 }
 
-# Helpers for visualize() Utilities -----------------------------------------------
-
-# a function for checking arguments to functions that are added as layers
-# to visualize()d objects to make sure they weren't mistakenly piped
-check_for_piped_visualize <- function(...) {
-  
-  is_ggplot_output <- vapply(list(...), ggplot2::is.ggplot, logical(1))
-  
-  if (any(is_ggplot_output)) {
-    
-    called_function <- sys.call(-1)[[1]]
-    
+check_is_distribution <- function(x, fn) {
+  if (!any(inherits(x, "infer_dist") || is.data.frame(x))) {
     stop_glue(
-      "It looks like you piped the result of `visualize()` into ",
-      "`{called_function}()` (using `%>%`) rather than adding the result of ",
-      "`{called_function}()` as a layer with `+`. Consider changing",
-      "`%>%` to `+`."
+      "The `x` argument to `{fn}()` must be an infer distribution, ",
+      "outputted by `assume()` or `calculate()`."     
     )
   }
-  
-  TRUE
 }

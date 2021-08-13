@@ -5,81 +5,43 @@
 \alias{visualise}
 \title{Visualize statistical inference}
 \usage{
-visualize(
-  data,
-  bins = 15,
-  method = "simulation",
-  dens_color = "black",
-  obs_stat = NULL,
-  obs_stat_color = "red2",
-  pvalue_fill = "pink",
-  direction = NULL,
-  endpoints = NULL,
-  endpoints_color = "mediumaquamarine",
-  ci_fill = "turquoise",
-  ...
-)
+visualize(data, bins = 15, method = "simulation", dens_color = "black", ...)
 
-visualise(
-  data,
-  bins = 15,
-  method = "simulation",
-  dens_color = "black",
-  obs_stat = NULL,
-  obs_stat_color = "red2",
-  pvalue_fill = "pink",
-  direction = NULL,
-  endpoints = NULL,
-  endpoints_color = "mediumaquamarine",
-  ci_fill = "turquoise",
-  ...
-)
+visualise(data, bins = 15, method = "simulation", dens_color = "black", ...)
 }
 \arguments{
-\item{data}{The output from \code{\link[=calculate]{calculate()}}.}
+\item{data}{A distribution. For simulation-based inference, a data frame
+containing a distribution of \code{\link[=calculate]{calculate()}}d statistics
+or \code{\link[=fit.infer]{fit()}}ted coefficient estimates. This object should
+have been passed to \code{\link[=generate]{generate()}} before being supplied or
+\code{\link[=calculate]{calculate()}} to \code{\link[=fit.infer]{fit()}}. For theory-based inference,
+the output of \code{\link[=assume]{assume()}}.}
 
 \item{bins}{The number of bins in the histogram.}
 
 \item{method}{A string giving the method to display. Options are
 \code{"simulation"}, \code{"theoretical"}, or \code{"both"} with \code{"both"} corresponding to
-\code{"simulation"} and \code{"theoretical"}.}
+\code{"simulation"} and \code{"theoretical"}. If \code{data} is the output of \code{\link[=assume]{assume()}},
+this argument will be ignored and default to \code{"theoretical"}.}
 
 \item{dens_color}{A character or hex string specifying the color of the
 theoretical density curve.}
 
-\item{obs_stat}{A numeric value or 1x1 data frame corresponding to what the
-observed statistic is. \strong{Deprecated (see Details)}.}
-
-\item{obs_stat_color}{A character or hex string specifying the color of the
-observed statistic as a vertical line on the plot. \strong{Deprecated (see
-Details)}.}
-
-\item{pvalue_fill}{A character or hex string specifying the color to shade
-the p-value. In previous versions of the package this was the \code{shade_color}
-argument. \strong{Deprecated (see Details)}.}
-
-\item{direction}{A string specifying in which direction the shading should
-occur. Options are \code{"less"}, \code{"greater"}, or \code{"two_sided"} for p-value. Can
-also give \code{"left"}, \code{"right"}, or \code{"both"} for p-value. For confidence
-intervals, use \code{"between"} and give the endpoint values in \code{endpoints}.
-\strong{Deprecated (see Details)}.}
-
-\item{endpoints}{A 2 element vector or a 1 x 2 data frame containing the
-lower and upper values to be plotted. Most useful for visualizing
-conference intervals. \strong{Deprecated (see Details)}.}
-
-\item{endpoints_color}{A character or hex string specifying the color of the
-observed statistic as a vertical line on the plot. \strong{Deprecated (see
-Details)}.}
-
-\item{ci_fill}{A character or hex string specifying the color to shade the
-confidence interval. \strong{Deprecated (see Details)}.}
-
 \item{...}{Other arguments passed along to \\{ggplot2\\} functions.}
 }
 \value{
-A ggplot object showing the simulation-based distribution as a
-histogram or bar graph. Also used to show the theoretical curves.
+For \code{\link[=calculate]{calculate()}}-based workflows, a ggplot showing the simulation-based
+distribution as a histogram or bar graph. Can also be used to display
+theoretical distributions.
+
+For \code{\link[=assume]{assume()}}-based workflows, a ggplot showing the theoretical distribution.
+
+For \code{\link[=fit.infer]{fit()}}-based workflows, a \code{patchwork} object
+showing the simulation-based distributions as a histogram or bar graph.
+The interface to adjust plot options and themes is a bit different
+for \code{patchwork} plots than ggplot2 plots. The examples highlight the
+biggest differences here, but see \code{\link[patchwork:plot_annotation]{patchwork::plot_annotation()}} and
+\link[patchwork:plot_arithmetic]{patchwork::&.gg} for more details.
 }
 \description{
 Visualize the distribution of the simulation-based inferential statistics or
@@ -88,18 +50,17 @@ the theoretical distribution (or both!).
 Learn more in \code{vignette("infer")}.
 }
 \details{
-In order to make visualization workflow more straightforward and
-explicit \code{visualize()} now only should be used to plot statistics directly.
-That is why arguments not related to this task are deprecated and will be
-removed in a future release of \\{infer\\}.
-
-To add to plot information related to p-value use \code{\link[=shade_p_value]{shade_p_value()}}. To add
-to plot information related to confidence interval use
-\code{\link[=shade_confidence_interval]{shade_confidence_interval()}}.
+In order to make the visualization workflow more straightforward
+and explicit, \code{visualize()} now only should be used to plot distributions
+of statistics directly. A number of arguments related to shading p-values and
+confidence intervals are now deprecated in \code{visualize()} and should
+now be passed to \code{\link[=shade_p_value]{shade_p_value()}} and \code{\link[=shade_confidence_interval]{shade_confidence_interval()}},
+respectively. \code{\link[=visualize]{visualize()}} will raise a warning if deprecated arguments
+are supplied.
 }
 \examples{
   
-# find a null distribution
+# generate a null distribution
 null_dist <- gss \%>\%
   # we're interested in the number of hours worked per week
   specify(response = hours) \%>\%
@@ -107,8 +68,15 @@ null_dist <- gss \%>\%
   hypothesize(null = "point", mu = 40) \%>\%
   # generating data points for a null distribution
   generate(reps = 1000, type = "bootstrap") \%>\%
-  # calculating a distribution of t test statistics
-  calculate(stat = "t")
+  # calculating a distribution of means
+  calculate(stat = "mean")
+  
+# or a bootstrap distribution, omitting the hypothesize() step,
+# for use in confidence intervals
+boot_dist <- gss \%>\%
+  specify(response = hours) \%>\%
+  generate(reps = 1000, type = "bootstrap") \%>\%
+  calculate(stat = "mean")
   
 # we can easily plot the null distribution by piping into visualize
 null_dist \%>\%
@@ -118,11 +86,10 @@ null_dist \%>\%
 # find the point estimate---mean number of hours worked per week
 point_estimate <- gss \%>\%
   specify(response = hours) \%>\%
-  hypothesize(null = "point", mu = 40) \%>\%
-  calculate(stat = "t")
+  calculate(stat = "mean")
   
 # find a confidence interval around the point estimate
-ci <- null_dist \%>\%
+ci <- boot_dist \%>\%
   get_confidence_interval(point_estimate = point_estimate,
                           # at the 95\% confidence level
                           level = .95,
@@ -134,23 +101,74 @@ null_dist \%>\%
   visualize() +
   shade_p_value(obs_stat = point_estimate, direction = "two-sided")
 
+# ...or within the bounds of the confidence interval
 null_dist \%>\%
   visualize() +
   shade_confidence_interval(ci)
   
-# to plot a theoretical null distribution, skip the generate()
-# step and supply `method = "theoretical"` to `visualize()`
-null_dist_theoretical <- gss \%>\%
+# plot a theoretical sampling distribution by creating
+# a theory-based distribution with `assume()`
+sampling_dist <- gss \%>\%
   specify(response = hours) \%>\%
-  hypothesize(null = "point", mu = 40) \%>\%
-  calculate(stat = "t") 
+  assume(distribution = "t") 
   
-visualize(null_dist_theoretical, method = "theoretical")
+visualize(sampling_dist)
+
+# you can shade confidence intervals on top of
+# theoretical distributions, too---the theoretical
+# distribution will be recentered and rescaled to
+# align with the confidence interval
+visualize(sampling_dist) +
+  shade_confidence_interval(ci)
+
 
 # to plot both a theory-based and simulation-based null distribution,
-# use the simulation-based null distribution and supply
-# `method = "both"` to `visualize()`
-visualize(null_dist, method = "both")
+# use a theorized statistic (i.e. one of t, z, F, or Chisq)
+# and supply the simulation-based null distribution
+null_dist_t <- gss \%>\%
+  specify(response = hours) \%>\%
+  hypothesize(null = "point", mu = 40) \%>\%
+  generate(reps = 1000, type = "bootstrap") \%>\%
+  calculate(stat = "t")
+  
+obs_stat <- gss \%>\%
+  specify(response = hours) \%>\%
+  hypothesize(null = "point", mu = 40) \%>\%
+  calculate(stat = "t")
+
+visualize(null_dist_t, method = "both")
+
+visualize(null_dist_t, method = "both") +
+  shade_p_value(obs_stat, "both")
+
+\donttest{
+# to visualize distributions of coefficients for multiple
+# explanatory variables, use a `fit()`-based workflow
+
+# fit 1000 models with the `hours` variable permuted
+null_fits <- gss \%>\%
+ specify(hours ~ age + college) \%>\%
+ hypothesize(null = "independence") \%>\%
+ generate(reps = 1000, type = "permute") \%>\%
+ fit()
+ 
+null_fits
+
+# visualize distributions of resulting coefficients
+visualize(null_fits)
+
+# the interface to add themes and other elements to patchwork
+# plots (outputted by `visualize` when the inputted data
+# is from the `fit()` function) is a bit different than adding
+# them to ggplot2 plots.
+library(ggplot2)
+
+# to add a ggplot2 theme to a `calculate()`-based visualization, use `+`
+null_dist \%>\% visualize() + theme_dark()
+  
+# to add a ggplot2 theme to a `fit()`-based visualization, use `&`
+null_fits \%>\% visualize() & theme_dark()
+}
 
 # More in-depth explanation of how to use the infer package
 \dontrun{

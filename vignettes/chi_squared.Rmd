@@ -55,16 +55,17 @@ First, to calculate the observed statistic, we can use `specify()` and `calculat
 # calculate the observed statistic
 observed_indep_statistic <- gss %>%
   specify(college ~ finrela) %>%
+  hypothesize(null = "independence") %>%
   calculate(stat = "Chisq")
 ```
 
 The observed $\chi^2$ statistic is `r observed_indep_statistic`. Now, we want to compare this statistic to a null distribution, generated under the assumption that these variables are not actually related, to get a sense of how likely it would be for us to see this observed statistic if there were actually no association between education and income.
 
-We can `generate` the null distribution in one of two ways---using randomization or theory-based methods. The randomization approach permutes the response and explanatory variables, so that each person's educational attainment is matched up with a random income from the sample in order to break up any association between the two.
+We can `generate` the null distribution in one of two ways---using randomization or theory-based methods. The randomization approach approximates the null distribution by permuting the response and explanatory variables, so that each person's educational attainment is matched up with a random income from the sample in order to break up any association between the two.
 
 ```{r generate-null-indep, warning = FALSE, message = FALSE}
 # generate the null distribution using randomization
-null_distribution_simulated <- gss %>%
+null_dist_sim <- gss %>%
   specify(college ~ finrela) %>%
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
@@ -75,31 +76,29 @@ Note that, in the line `specify(college ~ finrela)` above, we could use the equi
 
 ```{r generate-null-indep-t, warning = FALSE, message = FALSE}
 # generate the null distribution by theoretical approximation
-null_distribution_theoretical <- gss %>%
+null_dist_theory <- gss %>%
   specify(college ~ finrela) %>%
-  hypothesize(null = "independence") %>%
-  # note that we skip the generation step here!
-  calculate(stat = "Chisq")
+  assume(distribution = "Chisq")
 ```
 
 To get a sense for what these distributions look like, and where our observed statistic falls, we can use `visualize()`:
 
 ```{r visualize-indep, warning = FALSE, message = FALSE}
 # visualize the null distribution and test statistic!
-null_distribution_simulated %>%
+null_dist_sim %>%
   visualize() + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
 ```
 
-We could also visualize the observed statistic against the theoretical null distribution. Note that we skip the `generate()` and `calculate()` steps when using the theoretical approach, and that we now need to provide `method = "theoretical"` to `visualize()`.
+We could also visualize the observed statistic against the theoretical null distribution. To do so, use the `assume()` verb to define a theoretical null distribution and then pass it to `visualize()` like a null distribution outputted from `generate()` and `calculate()`.
 
 ```{r visualize-indep-theor, warning = FALSE, message = FALSE}
 # visualize the theoretical null distribution and test statistic!
 gss %>%
   specify(college ~ finrela) %>%
-  hypothesize(null = "independence") %>%
-  visualize(method = "theoretical") + 
+  assume(distribution = "Chisq") %>%
+  visualize() + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
 ```
@@ -108,26 +107,32 @@ To visualize both the randomization-based and theoretical null distributions to 
 
 ```{r visualize-indep-both, warning = FALSE, message = FALSE}
 # visualize both null distributions and the test statistic!
-null_distribution_simulated %>%
+null_dist_sim %>%
   visualize(method = "both") + 
   shade_p_value(observed_indep_statistic,
                 direction = "greater")
 ```
 
-Either way, it looks like our observed test statistic would be _really_ unlikely if there were actually no association between education and income. More exactly, we can calculate the p-value:
+Either way, it looks like our observed test statistic would be quite unlikely if there were actually no association between education and income. More exactly, we can approximate the p-value with `get_p_value`:
 
 ```{r p-value-indep, warning = FALSE, message = FALSE}
 # calculate the p value from the observed statistic and null distribution
-p_value_independence <- null_distribution_simulated %>%
+p_value_independence <- null_dist_sim %>%
   get_p_value(obs_stat = observed_indep_statistic,
               direction = "greater")
 
 p_value_independence
 ```
 
-Thus, if there were really no relationship between education and income, the probability that we would see a statistic as or more extreme than `r observed_indep_statistic` is approximately `r p_value_independence`.
+Thus, if there were really no relationship between education and income, our approximation of the probability that we would see a statistic as or more extreme than `r observed_indep_statistic` is approximately `r p_value_independence`.
 
-Note that, equivalently to the steps shown above, the package supplies a wrapper function, `chisq_test`, to carry out Chi-Squared tests of independence on tidy data. The syntax goes like this:
+To calculate the p-value using the true $\chi^2$ distribution, we can use the `pchisq` function from base R. This function allows us to situate the test statistic we calculated previously in the $\chi^2$ distribution with the appropriate degrees of freedom.
+
+```{r}
+pchisq(observed_indep_statistic$stat, 5, lower.tail = FALSE)
+```
+
+Note that, equivalently to the theory-based approach shown above, the package supplies a wrapper function, `chisq_test`, to carry out Chi-Squared tests of independence on tidy data. The syntax goes like this:
 
 ```{r chisq-indep-wrapper, message = FALSE, warning = FALSE}
 chisq_test(gss, college ~ finrela)
@@ -171,7 +176,7 @@ The observed statistic is `r observed_gof_statistic`. Now, generating a null dis
 
 ```{r null-distribution-gof, warning = FALSE, message = FALSE}
 # generating a null distribution, assuming each income class is equally likely
-null_distribution_gof <- gss %>%
+null_dist_gof <- gss %>%
   specify(response = finrela) %>%
   hypothesize(null = "point",
               p = c("far below average" = 1/6,
@@ -180,7 +185,7 @@ null_distribution_gof <- gss %>%
                     "above average" = 1/6,
                     "far above average" = 1/6,
                     "DK" = 1/6)) %>%
-  generate(reps = 1000, type = "simulate") %>%
+  generate(reps = 1000, type = "draw") %>%
   calculate(stat = "Chisq")
 ```
 
@@ -188,26 +193,32 @@ Again, to get a sense for what these distributions look like, and where our obse
 
 ```{r visualize-indep-gof, warning = FALSE, message = FALSE}
 # visualize the null distribution and test statistic!
-null_distribution_gof %>%
+null_dist_gof %>%
   visualize() + 
   shade_p_value(observed_gof_statistic,
                 direction = "greater")
 ```
 
-This statistic seems like it would be _really_ unlikely if income class self-identification actually followed a uniform distribution! How unlikely, though? Calculating the p-value:
+This statistic seems like it would be quite unlikely if income class self-identification actually followed a uniform distribution! How unlikely, though? Calculating the p-value:
 
 ```{r get-p-value-gof, warning = FALSE, message = FALSE}
 # calculate the p-value
-p_value_gof <- null_distribution_gof %>%
+p_value_gof <- null_dist_gof %>%
   get_p_value(observed_gof_statistic,
               direction = "greater")
 
 p_value_gof
 ```
 
-Thus, if each self-identified income class was equally likely to occur, the probability that we would see a distribution like the one we did is approximately `r p_value_gof`.
+Thus, if each self-identified income class was equally likely to occur, our approximation of the probability that we would see a distribution like the one we did is approximately `r p_value_gof`.
 
-Again, equivalently to the steps shown above, the package supplies a wrapper function, `chisq_test`, to carry out Chi-Squared goodness of fit tests on tidy data. The syntax goes like this:
+To calculate the p-value using the true $\chi^2$ distribution, we can use the `pchisq` function from base R. This function allows us to situate the test statistic we calculated previously in the $\chi^2$ distribution with the appropriate degrees of freedom.
+
+```{r}
+pchisq(observed_gof_statistic$stat, 5, lower.tail = FALSE)
+```
+
+Again, equivalently to the theory-based approach shown above, the package supplies a wrapper function, `chisq_test`, to carry out Chi-Squared goodness of fit tests on tidy data. The syntax goes like this:
 
 ```{r chisq-gof-wrapper, message = FALSE, warning = FALSE}
 chisq_test(gss, 

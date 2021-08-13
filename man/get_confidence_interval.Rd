@@ -5,19 +5,18 @@
 \alias{get_ci}
 \title{Compute confidence interval}
 \usage{
-get_confidence_interval(
-  x,
-  level = 0.95,
-  type = "percentile",
-  point_estimate = NULL
-)
+get_confidence_interval(x, level = 0.95, type = NULL, point_estimate = NULL)
 
-get_ci(x, level = 0.95, type = "percentile", point_estimate = NULL)
+get_ci(x, level = 0.95, type = NULL, point_estimate = NULL)
 }
 \arguments{
-\item{x}{Data frame of calculated statistics or containing attributes of
-theoretical distribution values. Currently, dependent on statistics being
-stored in \code{stat} column as created in \code{\link[=calculate]{calculate()}} function.}
+\item{x}{A distribution. For simulation-based inference, a data frame
+containing a distribution of \code{\link[=calculate]{calculate()}}d statistics
+or \code{\link[=fit.infer]{fit()}}ted coefficient estimates. This object should
+have been passed to \code{\link[=generate]{generate()}} before being supplied or
+\code{\link[=calculate]{calculate()}} to \code{\link[=fit.infer]{fit()}}. For theory-based inference,
+output of \code{\link[=assume]{assume()}}. Distributions for confidence intervals do not
+require a null hypothesis via \code{\link[=hypothesize]{hypothesize()}}.}
 
 \item{level}{A numerical value between 0 and 1 giving the confidence level.
 Default value is 0.95.}
@@ -27,24 +26,50 @@ confidence interval. The default is \code{"percentile"} with \code{"se"}
 corresponding to (multiplier * standard error) and \code{"bias-corrected"} for
 bias-corrected interval as other options.}
 
-\item{point_estimate}{A numeric value or a 1x1 data frame set to \code{NULL} by
-default. Needed to be provided if \code{type} is \code{"se"} or \code{"bias-corrected"}.}
+\item{point_estimate}{A data frame containing the observed statistic (in a
+\code{\link[=calculate]{calculate()}}-based workflow) or observed fit (in a
+\code{\link[=fit.infer]{fit()}}-based workflow). This object is likely the output
+of \code{\link[=calculate]{calculate()}} or \code{\link[=fit.infer]{fit()}} and need not
+to have been passed to \code{\link[=generate]{generate()}}. Set to \code{NULL} by
+default. Must be provided if \code{type} is \code{"se"} or \code{"bias-corrected"}.}
 }
 \value{
-A 1 x 2 tibble with 'lower_ci' and 'upper_ci' columns. Values
-correspond to lower and upper bounds of the confidence interval.
+A \link[tibble:tibble]{tibble} containing the following columns:
+
+\itemize{
+\item \code{term}: The explanatory variable (or intercept) in question. Only
+supplied if the input had been previously passed to \code{\link[=fit.infer]{fit()}}.
+\item \code{lower_ci}, \code{upper_ci}: The lower and upper bounds of the confidence
+interval, respectively.
+}
 }
 \description{
-Compute a confidence interval around a summary statistic. Currently, only
-simulation-based methods are supported.
+Compute a confidence interval around a summary statistic. Both
+simulation-based and theoretical methods are supported, though only
+\code{type = "se"} is supported for theoretical methods.
 
 Learn more in \code{vignette("infer")}.
 }
 \details{
-A null hypothesis is not required to compute a confidence interval, but
-including \code{hypothesize()} in a chain leading to \code{get_confidence_interval()}
+A null hypothesis is not required to compute a confidence interval. However,
+including \code{\link[=hypothesize]{hypothesize()}} in a pipeline leading to \code{get_confidence_interval()}
 will not break anything. This can be useful when computing a confidence
-interval after previously computing a p-value.
+interval using the same distribution used to compute a p-value.
+
+Theoretical confidence intervals (i.e. calculated by supplying the output
+of \code{\link[=assume]{assume()}} to the \code{x} argument) require that the point estimate lies on
+the scale of the data. The distribution defined in \code{\link[=assume]{assume()}} will be
+recentered and rescaled to align with the point estimate, as can be shown
+in the output of \code{\link[=visualize]{visualize()}} when paired with \code{\link[=shade_confidence_interval]{shade_confidence_interval()}}.
+Confidence intervals are implemented for the following distributions and
+point estimates:
+
+\itemize{
+\item \code{distribution = "t"}: \code{point_estimate} should be the output of
+\code{\link[=calculate]{calculate()}} with \code{stat = "mean"} or \code{stat = "diff in means"}
+\item \code{distribution = "z"}: \code{point_estimate} should be the output of
+\code{\link[=calculate]{calculate()}} with \code{stat = "prop"} or \code{stat = "diff in props"}
+}
 }
 \section{Aliases}{
 
@@ -54,7 +79,7 @@ interval after previously computing a p-value.
 
 \examples{
 
-boot_distr <- gss \%>\%
+boot_dist <- gss \%>\%
   # We're interested in the number of hours worked per week
   specify(response = hours) \%>\%
   # Generate bootstrap samples
@@ -62,20 +87,19 @@ boot_distr <- gss \%>\%
   # Calculate mean of each bootstrap sample
   calculate(stat = "mean")
 
-boot_distr \%>\%
+boot_dist \%>\%
   # Calculate the confidence interval around the point estimate
   get_confidence_interval(
     # At the 95\% confidence level; percentile method
     level = 0.95
   )
 
-# For type = "se" or type = "bias-corrected" we need a point estimate
+# for type = "se" or type = "bias-corrected" we need a point estimate
 sample_mean <- gss \%>\%
   specify(response = hours) \%>\%
-  calculate(stat = "mean") \%>\%
-  dplyr::pull()
+  calculate(stat = "mean")
 
-boot_distr \%>\%
+boot_dist \%>\%
   get_confidence_interval(
     point_estimate = sample_mean,
     # At the 95\% confidence level
@@ -83,10 +107,57 @@ boot_distr \%>\%
     # Using the standard error method
     type = "se"
   )
+  
+# using a theoretical distribution -----------------------------------
 
-# More in-depth explanation of how to use the infer package
+# define a sampling distribution
+sampling_dist <- gss \%>\%
+  specify(response = hours) \%>\%
+  assume("t")
+
+# get the confidence interval---note that the
+# point estimate is required here
+get_confidence_interval(
+  sampling_dist, 
+  level = .95, 
+  point_estimate = sample_mean
+)
+  
+# using a model fitting workflow -----------------------
+
+# fit a linear model predicting number of hours worked per
+# week using respondent age and degree status.
+observed_fit <- gss \%>\%
+  specify(hours ~ age + college) \%>\%
+  fit()
+
+observed_fit
+
+# fit 100 models to resamples of the gss dataset, where the response 
+# `hours` is permuted in each. note that this code is the same as 
+# the above except for the addition of the `generate` step.
+null_fits <- gss \%>\%
+  specify(hours ~ age + college) \%>\%
+  hypothesize(null = "independence") \%>\%
+  generate(reps = 100, type = "permute") \%>\%
+  fit()
+
+null_fits
+
+get_confidence_interval(
+  null_fits, 
+  point_estimate = observed_fit, 
+  level = .95
+)
+
+# more in-depth explanation of how to use the infer package
 \dontrun{
 vignette("infer")
 }
 
 }
+\seealso{
+Other auxillary functions: 
+\code{\link{get_p_value}()}
+}
+\concept{auxillary functions}

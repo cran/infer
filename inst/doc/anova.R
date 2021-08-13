@@ -25,11 +25,12 @@ gss %>%
 # calculate the observed statistic
 observed_f_statistic <- gss %>%
   specify(age ~ partyid) %>%
+  hypothesize(null = "independence") %>%
   calculate(stat = "F")
 
 ## ----generate-null-f, warning = FALSE, message = FALSE------------------------
 # generate the null distribution using randomization
-null_distribution <- gss %>%
+null_dist <- gss %>%
   specify(age ~ partyid) %>%
   hypothesize(null = "independence") %>%
   generate(reps = 1000, type = "permute") %>%
@@ -37,32 +38,36 @@ null_distribution <- gss %>%
 
 ## ----visualize-f, warning = FALSE, message = FALSE----------------------------
 # visualize the null distribution and test statistic!
-null_distribution %>%
+null_dist %>%
   visualize() + 
   shade_p_value(observed_f_statistic,
                 direction = "greater")
 
 ## ----visualize-f-theor, warning = FALSE, message = FALSE----------------------
 # visualize the theoretical null distribution and test statistic!
-gss %>%
+null_dist_theory <- gss %>%
   specify(age ~ partyid) %>%
-  hypothesize(null = "independence") %>%
-  visualize(method = "theoretical") + 
+  assume(distribution = "F")
+
+visualize(null_dist_theory) +
   shade_p_value(observed_f_statistic,
                 direction = "greater")
 
 ## ----visualize-indep-both, warning = FALSE, message = FALSE-------------------
 # visualize both null distributions and the test statistic!
-null_distribution %>%
+null_dist %>%
   visualize(method = "both") + 
   shade_p_value(observed_f_statistic,
                 direction = "greater")
 
 ## ----p-value-indep, warning = FALSE, message = FALSE--------------------------
 # calculate the p value from the observed statistic and null distribution
-p_value <- null_distribution %>%
+p_value <- null_dist %>%
   get_p_value(obs_stat = observed_f_statistic,
               direction = "greater")
 
 p_value
+
+## -----------------------------------------------------------------------------
+pf(observed_f_statistic$stat, 3, 496, lower.tail = FALSE)
 
