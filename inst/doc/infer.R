@@ -4,7 +4,7 @@ options(digits = 4)
 
 ## ----load-packages, echo = FALSE, message = FALSE, warning = FALSE------------
 library(dplyr)
-devtools::load_all()
+library(infer)
 
 ## ----load-gss, warning = FALSE, message = FALSE-------------------------------
 # load in the dataset
@@ -47,6 +47,8 @@ gss %>%
   hypothesize(null = "point", mu = 40)
 
 ## ----generate-point, warning = FALSE, message = FALSE-------------------------
+set.seed(1)
+
 gss %>%
   specify(response = hours) %>%
   hypothesize(null = "point", mu = 40) %>%

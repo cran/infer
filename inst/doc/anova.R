@@ -5,7 +5,7 @@ options(digits = 4)
 ## ----load-packages, echo = FALSE, message = FALSE, warning = FALSE------------
 library(ggplot2)
 library(dplyr)
-devtools::load_all()
+library(infer)
 
 ## ----glimpse-gss-actual, warning = FALSE, message = FALSE---------------------
 dplyr::glimpse(gss)

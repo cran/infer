@@ -42,7 +42,7 @@
 #' }
 #'
 #' @importFrom rlang f_lhs f_rhs get_expr
-#' @importFrom dplyr mutate_if select any_of
+#' @importFrom dplyr select any_of across
 #' @importFrom methods hasArg
 #' @family core functions
 #' @export
@@ -51,10 +51,7 @@ specify <- function(x, formula, response = NULL,
   check_type(x, is.data.frame)
 
   # Standardize variable types
-  x <- tibble::as_tibble(x) %>%
-    mutate_if(is.character, as.factor) %>%
-    mutate_if(is.logical, as.factor) %>%
-    mutate_if(is.integer, as.numeric)
+  x <- standardize_variable_types(x)
   
   # Parse response and explanatory variables
   response <- enquo(response)
@@ -135,6 +132,9 @@ parse_variables <- function(x, formula, response, explanatory) {
     attr(x, "explanatory_type") <- 
       purrr::map_chr(as.data.frame(explanatory_variable(x)), class)
   }
+  
+  attr(x, "type_desc_response") <- determine_variable_type(x, "response")
+  attr(x, "type_desc_explanatory") <- determine_variable_type(x, "explanatory")
   
   # Determine params for theoretical fit
   x <- set_params(x)

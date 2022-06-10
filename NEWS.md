@@ -1,3 +1,31 @@
+# infer v1.0.2
+
+* Fix p-value shading when the calculated statistic falls exactly on the boundaries of a histogram bin (#424).
+* Fix `generate()` errors when columns are named `x` (#431).
+* Fix error from `visualize` when passed `generate()`d `infer_dist` objects that had not been passed to `hypothesize()` (#432). 
+* Update visual checks for `visualize` output to align with the R 4.1.0+ graphics engine (#438).
+* `specify()` and wrapper functions now appropriately handle ordered factors (#439).
+* Clarify error when incompatible statistics and hypotheses are supplied (#441).
+* Updated `generate()` unexpected `type` warnings to be more permissive—the 
+warning will be raised less often when `type = "bootstrap"` (#425).
+* Allow passing additional arguments to `stats::chisq.test` via `...` in 
+`calculate()`. Ellipses are now always passed to the applicable base R
+hypothesis testing function, when applicable (#414)!
+* The package will now set the levels of logical variables on conversion to factor
+so that the first level (regarded as `success` by default) is `TRUE`. Core verbs
+have warned without an explicit `success` value already, and this change makes
+behavior consistent with the functions being wrapped by shorthand test 
+wrappers (#440).
+* Added new statistic `stat = "ratio of means"` (#452).
+
+# infer v1.0.1 (GitHub Only)
+
+This release reflects the infer version accepted to the Journal of Open Source Software.
+
+* Re-licensed the package from CC0 to MIT. See the `LICENSE` and `LICENSE.md` files.
+* Contributed a paper to the Journal of Open Source Software, a draft of which is available in `/figs/paper`.
+* Various improvements to documentation (#417, #418).
+
 # infer 1.0.0
 
 v1.0.0 is the first major release of the {infer} package! By and large, the core verbs `specify()`, `hypothesize()`, `generate()`, and `calculate()` will interface as they did before. This release makes several improvements to behavioral consistency of the package and introduces support for theory-based inference as well as randomization-based inference with multiple explanatory variables.

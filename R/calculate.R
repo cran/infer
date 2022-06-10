@@ -16,17 +16,18 @@
 #'   options include `"mean"`, `"median"`, `"sum"`, `"sd"`, `"prop"`, `"count"`,
 #'   `"diff in means"`, `"diff in medians"`, `"diff in props"`, `"Chisq"` (or
 #'   `"chisq"`), `"F"` (or `"f"`), `"t"`, `"z"`, `"ratio of props"`, `"slope"`,
-#'   `"odds ratio"`, and `"correlation"`. `infer` only supports theoretical 
-#'   tests on one or two means via the `"t"` distribution and one or two 
-#'   proportions via the `"z"`.
+#'   `"odds ratio"`, `"ratio of means"`, and `"correlation"`. `infer` only
+#'   supports theoretical tests on one or two means via the `"t"` distribution
+#'   and one or two proportions via the `"z"`.
 #' @param order A string vector of specifying the order in which the levels of
 #'   the explanatory variable should be ordered for subtraction (or division
-#'   for ratio-based statistics), where `order = c("first", "second")` means 
+#'   for ratio-based statistics), where `order = c("first", "second")` means
 #'   `("first" - "second")`, or the analogue for ratios. Needed for inference on
 #'   difference in means, medians, proportions, ratios, t, and z statistics.
 #' @param ... To pass options like `na.rm = TRUE` into functions like
 #'   [mean()][base::mean()], [sd()][stats::sd()], etc. Can also be used to
-#'   supply hypothesized null values for the `"t"` statistic.
+#'   supply hypothesized null values for the `"t"` statistic or additional
+#'   arguments to [stats::chisq.test()].
 #'
 #' @return A tibble containing a `stat` column of calculated statistics.
 #'
@@ -37,7 +38,8 @@
 #' cases will be NaN. The package will omit non-finite values from
 #' visualizations (with a warning) and raise an error in p-value calculations.
 #'
-#' 
+#' @includeRmd man-roxygen/seeds.Rmd
+#'
 #' @examples
 #'
 #' # calculate a null distribution of hours worked per week under
@@ -47,7 +49,7 @@
 #'   hypothesize(null = "point", mu = 40) %>%
 #'   generate(reps = 200, type = "bootstrap") %>%
 #'   calculate(stat = "mean")
-#'   
+#'
 #' # calculate the corresponding observed statistic
 #' gss %>%
 #'   specify(response = hours) %>%
@@ -60,18 +62,18 @@
 #'   hypothesize(null = "independence") %>%
 #'   generate(reps = 200, type = "permute") %>%
 #'   calculate("diff in means", order = c("degree", "no degree"))
-#'   
+#'
 #' # calculate the corresponding observed statistic
 #' gss %>%
 #'   specify(age ~ college) %>%
 #'   calculate("diff in means", order = c("degree", "no degree"))
-#'   
+#'
 #' # some statistics require a null hypothesis
 #'  gss %>%
-#'    specify(response = hours) %>% 
+#'    specify(response = hours) %>%
 #'    hypothesize(null = "point", mu = 40) %>%
 #'    calculate(stat = "t")
-#'    
+#'
 #' # more in-depth explanation of how to use the infer package
 #' \dontrun{
 #' vignette("infer")
@@ -89,25 +91,25 @@ calculate <- function(x,
                         "mean", "median", "sum", "sd", "prop", "count",
                         "diff in means", "diff in medians", "diff in props",
                         "Chisq", "F", "slope", "correlation", "t", "z",
-                        "ratio of props", "odds ratio"
+                        "ratio of props", "odds ratio", "ratio of means"
                       ),
                       order = NULL,
                       ...) {
   check_type(x, tibble::is_tibble)
   check_if_mlr(x, "calculate")
   stat <- check_calculate_stat(stat)
-  check_variables_vs_stat(x, stat)
+  check_input_vs_stat(x, stat)
   check_point_params(x, stat)
-  
+
   order <- check_order(x, order, in_calculate = TRUE, stat)
 
   if (!is_generated(x)) {
     x$replicate <- 1L
   }
-  
+
   x <- message_on_excessive_null(x, stat = stat, fn = "calculate")
   x <- warn_on_insufficient_null(x, stat, ...)
-  
+
   # Use S3 method to match correct calculation
   result <- calc_impl(
     structure(stat, class = gsub(" ", "_", stat)), x, order, ...
@@ -131,7 +133,7 @@ check_if_mlr <- function(x, fn) {
   } else {
     suggestion <- ""
   }
-    
+
   if (is_mlr(x)) {
     stop_glue(
       "Multiple explanatory variables are not supported in {fn}(). {suggestion}"
@@ -140,9 +142,9 @@ check_if_mlr <- function(x, fn) {
 }
 
 check_calculate_stat <- function(stat) {
-  
+
   check_type(stat, rlang::is_string)
-  
+
   # Check for possible `stat` aliases
   alias_match_id <- match(stat, implemented_stats_aliases[["alias"]])
   if (!is.na(alias_match_id)) {
@@ -155,10 +157,10 @@ check_calculate_stat <- function(stat) {
 }
 
 # Raise an error if the user supplies a test statistic that doesn't
-# make sense given the variable specified
-check_variables_vs_stat <- function(x, stat) {
-  response_type <- determine_variable_type(x, "response")
-  explanatory_type <- determine_variable_type(x, "explanatory")
+# make sense given the variable and hypothesis specified
+check_input_vs_stat <- function(x, stat) {
+  response_type <- attr(x, "type_desc_response")
+  explanatory_type <- attr(x, "type_desc_explanatory")
 
   possible_stats <- stat_types %>%
     dplyr::filter(resp == response_type & exp == explanatory_type) %>%
@@ -188,6 +190,21 @@ check_variables_vs_stat <- function(x, stat) {
       "({response_name(x)}) and ", msg_tail
     )
   }
+
+  if (is_hypothesized(x)) {
+    stat_nulls <- stat_hypotheses %>%
+      dplyr::filter(stat == !!stat &
+                    hypothesis == attr(x, "null"))
+
+    if (nrow(stat_nulls) == 0) {
+      stop_glue(
+        'The supplied statistic `stat = "{stat}"` is incompatible with the ',
+        'supplied hypothesis `null = "{attr(x, "null")}"`.'
+      )
+    }
+  }
+
+  x
 }
 
 # When given no hypothesis for a theorized statistic, supply a reasonable value
@@ -196,7 +213,7 @@ assume_null <- function(x, stat_) {
     dplyr::filter(stat == stat_) %>%
     dplyr::pull(null_fn) %>%
     `[[`(1)
-  
+
   null_fn(x)
 }
 
@@ -210,7 +227,7 @@ message_on_excessive_null <- function(x, stat = "mean", fn) {
   if (!is_generated(x) && is_hypothesized(x) && stat %in% untheorized_stats) {
     null_type <- attr(x, "null")
     null_param <- attr(x, "params")
-    
+
     message_glue(
       "Message: The {null_type} null hypothesis ",
       "{if (null_type == 'point') {paste0('`', names(null_param), ' = ', unname(null_param), '` ')} else {''}}",
@@ -219,27 +236,27 @@ message_on_excessive_null <- function(x, stat = "mean", fn) {
       "and will be ignored."
     )
   }
-  
+
   x
 }
 
 # User didn't supply "enough" information - no hypothesis for a theorized
 # statistic on a point estimate, so warn that a reasonable value was assumed.
 warn_on_insufficient_null <- function(x, stat, ...) {
-  if (!is_hypothesized(x)          && 
-      !has_explanatory(x)          && 
+  if (!is_hypothesized(x)          &&
+      !has_explanatory(x)          &&
       !stat %in% untheorized_stats &&
       !(stat == "t" && "mu" %in% names(list(...)))) {
     attr(x, "null") <- "point"
     attr(x, "params") <- assume_null(x, stat)
-    
+
     warning_glue(
       "{get_stat_desc(stat)} requires a null ",
       "hypothesis to calculate the observed statistic. \nOutput assumes ",
       "the following null value{print_params(x)}."
     )
-  } 
-  
+  }
+
   x
 }
 
@@ -254,16 +271,16 @@ calc_impl_one_f <- function(f) {
     res <- x %>%
       dplyr::group_by(replicate) %>%
       dplyr::summarize(stat = f(!!(sym(col)), ...))
-    
+
     # calculate SE for confidence intervals
     if (length(unique(x[["replicate"]])) == 1) {
       sample_sd <- x %>%
         dplyr::summarize(stats::sd(!!(sym(col)))) %>%
         dplyr::pull()
-      
+
       attr(res, "se") <- sample_sd / sqrt(nrow(x))
     }
-    
+
     res
   }
 }
@@ -284,14 +301,14 @@ calc_impl_success_f <- function(f, output_name) {
     res <- x %>%
       dplyr::group_by(replicate) %>%
       dplyr::summarize(stat = f(!!sym(col), success))
-    
+
     # calculate SE for confidence intervals
     if (length(unique(x[["replicate"]])) == 1 && output_name == "proportion") {
       prop <- res[["stat"]]
-      
+
       attr(res, "se") <- sqrt((prop * (1 - prop)) / nrow(x))
     }
-    
+
     res
   }
 }
@@ -335,29 +352,31 @@ calc_impl.correlation <- function(type, x, order, ...) {
     )
 }
 
-calc_impl_diff_f <- function(f) {
+calc_impl_diff_f <- function(f, operator) {
   function(type, x, order, ...) {
     res <- x %>%
       dplyr::group_by(replicate, !!explanatory_expr(x), .drop = FALSE) %>%
       dplyr::summarize(value = f(!!response_expr(x), ...)) %>%
       dplyr::group_by(replicate) %>%
       dplyr::summarize(
-        stat = value[!!(explanatory_expr(x)) == order[1]] -
-          value[!!(explanatory_expr(x)) == order[2]]
+        stat = operator(
+           value[!!(explanatory_expr(x)) == order[1]],
+           value[!!(explanatory_expr(x)) == order[2]]
+        )
       )
-    
+
     # calculate SE for confidence intervals
-    if (length(unique(x[["replicate"]])) == 1) {
+    if (length(unique(x[["replicate"]])) == 1 && identical(operator, `-`)) {
       sample_sds <- x %>%
         dplyr::group_by(replicate, !!explanatory_expr(x), .drop = FALSE) %>%
         dplyr::summarize(stats::sd(!!response_expr(x))) %>%
         dplyr::pull()
-      
+
       sample_counts <- x %>%
         dplyr::count(!!explanatory_expr(x), .drop = FALSE) %>%
         dplyr::pull()
-      
-      attr(res, "se") <- 
+
+      attr(res, "se") <-
         sqrt(
           sum(
             (sample_sds[1] / sqrt(sample_counts[1]))^2,
@@ -365,14 +384,16 @@ calc_impl_diff_f <- function(f) {
           )
         )
     }
-    
+
     res
   }
 }
 
-calc_impl.diff_in_means <- calc_impl_diff_f(mean)
+calc_impl.diff_in_means <- calc_impl_diff_f(mean, operator = `-`)
 
-calc_impl.diff_in_medians <- calc_impl_diff_f(stats::median)
+calc_impl.diff_in_medians <- calc_impl_diff_f(stats::median, operator = `-`)
+
+calc_impl.ratio_of_means <- calc_impl_diff_f(mean, operator = `/`)
 
 calc_impl.Chisq <- function(type, x, order, ...) {
   resp_var <- response_name(x)
@@ -384,12 +405,13 @@ calc_impl.Chisq <- function(type, x, order, ...) {
       chisq <- suppressWarnings(stats::chisq.test(
         # Ensure correct ordering of parameters
         table(df[[resp_var]])[p_levels],
-        p = attr(x, "params")
+        p = attr(x, "params"),
+        ...
       ))
-      
+
       unname(chisq[["statistic"]])
     }
-    
+
     result <- x %>%
       dplyr::nest_by(.key = "data") %>%
       dplyr::summarise(stat = chisq_gof(data), .groups = "drop")
@@ -399,7 +421,8 @@ calc_impl.Chisq <- function(type, x, order, ...) {
     chisq_indep <- function(df) {
       res <- suppressWarnings(stats::chisq.test(
         x = df[[expl_var]],
-        y = df[[resp_var]]
+        y = df[[resp_var]],
+        ...
       ))
 
       res[["statistic"]]
@@ -421,7 +444,8 @@ calc_impl.Chisq <- function(type, x, order, ...) {
     to = result, from = x,
     attrs = c(
       "response", "success", "explanatory", "response_type",
-      "explanatory_type", "distr_param", "distr_param2", "theory_type"
+      "explanatory_type", "distr_param", "distr_param2", "theory_type",
+      "type_desc_response", "type_desc_explanatory"
     )
   )
 }
@@ -439,19 +463,19 @@ calc_impl.function_of_props <- function(type, x, order, operator, ...) {
         prop[!!explanatory_expr(x) == order[2]]
       )
     )
-  
+
   # calculate SE for confidence intervals
   if (length(unique(x[["replicate"]])) == 1) {
     props <- x %>%
       dplyr::group_by(!!explanatory_expr(x), .drop = FALSE) %>%
       dplyr::summarize(prop = mean(!!sym(col) == success, ...)) %>%
       dplyr::pull()
-    
+
     counts <- x %>%
       dplyr::count(!!explanatory_expr(x), .drop = FALSE) %>%
       dplyr::pull()
-    
-    attr(res, "se") <- 
+
+    attr(res, "se") <-
       sqrt(
         sum(
           abs((props[1] * (1 - props[1])) / counts[1]),
@@ -459,7 +483,7 @@ calc_impl.function_of_props <- function(type, x, order, operator, ...) {
         )
       )
   }
-  
+
   res
 }
 
@@ -558,7 +582,7 @@ calc_impl.z <- function(type, x, order, ...) {
     col <- response_expr(x)
     p0 <- unname(attr(x, "params")[1])
     num_rows <- nrow(x) / length(unique(x$replicate))
-      
+
     df_out <- x %>%
       dplyr::summarize(
         stat = (

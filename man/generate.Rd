@@ -48,11 +48,65 @@ replacement) from the input sample data.
 \item \code{permute}: For each replicate, each input value will be randomly
 reassigned (without replacement) to a new output value in the sample.
 \item \code{draw}: A value will be sampled from a theoretical distribution
-with parameters specified in \code{\link[=hypothesize]{hypothesize()}} for each replicate. This
-option is currently only applicable for testing point estimates. This
+with parameter \code{p} specified in \code{\link[=hypothesize]{hypothesize()}} for each replicate. This
+option is currently only applicable for testing on one proportion. This
 generation type was previously called \code{"simulate"}, which has been
 superseded.
 }
+}
+
+\section{Reproducibility}{
+When using the infer package for research, or in other cases when exact
+reproducibility is a priority, be sure the set the seed for R’s random
+number generator. infer will respect the random seed specified in the
+\code{set.seed()} function, returning the same result when \code{generate()}ing
+data given an identical seed. For instance, we can calculate the
+difference in mean \code{age} by \code{college} degree status using the \code{gss}
+dataset from 10 versions of the \code{gss} resampled with permutation using
+the following code.\if{html}{\out{<div class="r">}}\preformatted{set.seed(1)
+
+gss \%>\%
+  specify(age ~ college) \%>\%
+  hypothesize(null = "independence") \%>\%
+  generate(reps = 5, type = "permute") \%>\%
+  calculate("diff in means", order = c("degree", "no degree"))
+}\if{html}{\out{</div>}}\preformatted{## Response: age (numeric)
+## Explanatory: college (factor)
+## Null Hypothesis: independence
+## # A tibble: 5 × 2
+##   replicate   stat
+##       <int>  <dbl>
+## 1         1 -0.531
+## 2         2 -2.35 
+## 3         3  0.764
+## 4         4  0.280
+## 5         5  0.350
+}
+
+Setting the seed to the same value again and rerunning the same code
+will produce the same result.\if{html}{\out{<div class="r">}}\preformatted{# set the seed
+set.seed(1)
+
+gss \%>\%
+  specify(age ~ college) \%>\%
+  hypothesize(null = "independence") \%>\%
+  generate(reps = 5, type = "permute") \%>\%
+  calculate("diff in means", order = c("degree", "no degree"))
+}\if{html}{\out{</div>}}\preformatted{## Response: age (numeric)
+## Explanatory: college (factor)
+## Null Hypothesis: independence
+## # A tibble: 5 × 2
+##   replicate   stat
+##       <int>  <dbl>
+## 1         1 -0.531
+## 2         2 -2.35 
+## 3         3  0.764
+## 4         4  0.280
+## 5         5  0.350
+}
+
+Please keep this in mind when writing infer code that utilizes
+resampling with \code{generate()}.
 }
 
 \examples{
@@ -63,11 +117,19 @@ gss \%>\%
  generate(reps = 200, type = "bootstrap")
 
 # generate a null distribution for the independence of
-# two variables by permuting their values 1000 times
+# two variables by permuting their values 200 times
 gss \%>\%
  specify(partyid ~ age) \%>\%
  hypothesize(null = "independence") \%>\%
  generate(reps = 200, type = "permute")
+
+# generate a null distribution via sampling from a
+# binomial distribution 200 times
+gss \%>\%
+specify(response = sex, success = "female") \%>\%
+  hypothesize(null = "point", p = .5) \%>\%
+  generate(reps = 200, type = "draw") \%>\%
+  calculate(stat = "z")
 
 # more in-depth explanation of how to use the infer package
 \dontrun{

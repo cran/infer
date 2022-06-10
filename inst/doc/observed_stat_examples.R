@@ -5,7 +5,7 @@ options(digits = 4)
 
 ## ----load-packages, echo = FALSE----------------------------------------------
 library(dplyr)
-devtools::load_all()
+library(infer)
 
 ## ----load-gss-----------------------------------------------------------------
 # load in the dataset
