@@ -751,6 +751,36 @@ visualize(sampling_dist) +
   shade_confidence_interval(endpoints = theor_ci)
 
 ## -----------------------------------------------------------------------------
+d_hat <- gss %>%
+  specify(hours ~ college) %>%
+  calculate(stat = "ratio of means", order = c("degree", "no degree"))
+
+## -----------------------------------------------------------------------------
+d_hat <- gss %>%
+  observe(hours ~ college,
+          stat = "ratio of means", order = c("degree", "no degree"))
+
+## -----------------------------------------------------------------------------
+boot_dist <- gss %>%
+   specify(hours ~ college) %>%
+   generate(reps = 1000, type = "bootstrap") %>%
+   calculate(stat = "ratio of means", order = c("degree", "no degree"))
+
+## -----------------------------------------------------------------------------
+percentile_ci <- get_ci(boot_dist)
+
+## -----------------------------------------------------------------------------
+visualize(boot_dist) +
+  shade_confidence_interval(endpoints = percentile_ci)
+
+## -----------------------------------------------------------------------------
+standard_error_ci <- boot_dist %>%
+  get_ci(type = "se", point_estimate = d_hat)
+
+visualize(boot_dist) +
+  shade_confidence_interval(endpoints = standard_error_ci)
+
+## -----------------------------------------------------------------------------
 t_hat <- gss %>%
   specify(hours ~ college) %>%
   calculate(stat = "t", order = c("degree", "no degree"))

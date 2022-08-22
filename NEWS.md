@@ -1,3 +1,7 @@
+# infer v1.0.3
+
+* Fix R-devel HTML5 NOTEs.
+
 # infer v1.0.2
 
 * Fix p-value shading when the calculated statistic falls exactly on the boundaries of a histogram bin (#424).
