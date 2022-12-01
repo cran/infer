@@ -1,3 +1,9 @@
+# infer v1.0.4
+
+* Fixed bug in p-value shading where shaded regions no longer correctly overlaid
+  histogram bars.
+* Addressed deprecation warning ahead of upcoming dplyr release.
+
 # infer v1.0.3
 
 * Fix R-devel HTML5 NOTEs.
