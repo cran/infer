@@ -1,3 +1,18 @@
+# infer v1.0.5
+
+* Implemented support for permutation hypothesis tests for paired data via the 
+  argument value `null = "paired independence"` in `hypothesize()` (#487).
+
+* The `weight_by` argument to `rep_slice_sample()` can now be passed either as a vector of numeric weights or an unquoted column name in `.data` (#480).
+
+* Newly accommodates variables with spaces in names in the wrapper functions `t_test()` and `prop_test()` (#472).
+
+* Fixed bug in two-sample `prop_test()` where the response and explanatory 
+  variable were passed in place of each other to `prop.test()`. This enables
+  using `prop_test()` with explanatory variables with greater than 2 levels and,
+  in the process, addresses a bug where `prop_test()` collapsed levels other than
+  the `success` when the response variable had more than 2 levels.
+
 # infer v1.0.4
 
 * Fixed bug in p-value shading where shaded regions no longer correctly overlaid
@@ -42,7 +57,7 @@ v1.0.0 is the first major release of the {infer} package! By and large, the core
 
 ## Behavioral consistency
 
-A major change to the package in this release is a set of standards for behavorial consistency of `calculate()` (#356). Namely, the package will now
+A major change to the package in this release is a set of standards for behavioral consistency of `calculate()` (#356). Namely, the package will now
 
 * supply a consistent error when the supplied `stat` argument isn't well-defined
 for the variables `specify()`d
@@ -122,7 +137,7 @@ To accommodate this behavior, a number of new `calculate` methods were added or 
 - Extended `calculate()` to allow lowercase aliases for `stat` arguments (#373).
 - Fixed bugs in `calculate()` for to allow for programmatic calculation of statistics
 
-This behavorial consistency also allowed for the implementation of `observe()`, a wrapper function around `specify()`, `hypothesize()`, and `calculate()`, to calculate observed statistics. The function provides a shorthand alternative to calculating observed statistics from data:
+This behavioral consistency also allowed for the implementation of `observe()`, a wrapper function around `specify()`, `hypothesize()`, and `calculate()`, to calculate observed statistics. The function provides a shorthand alternative to calculating observed statistics from data:
 
 ``` r
 # calculating the observed mean number of hours worked per week

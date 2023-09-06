@@ -18,7 +18,8 @@
 #' @param replace Should samples be taken with replacement?
 #' @param reps Number of samples to take.
 #' @param prob,weight_by A vector of sampling weights for each of the rows in
-#' `.data`—must have length equal to `nrow(.data)`.
+#' `.data`—must have length equal to `nrow(.data)`. For `weight_by`, this
+#' may also be an unquoted column name in `.data`.
 #'
 #' @details
 #'
@@ -69,6 +70,11 @@
 #' )
 #'
 #' rep_slice_sample(df, n = 2, reps = 5, weight_by = c(.5, .4, .3, .2, .1))
+#'
+#' # alternatively, pass an unquoted column name in `.data` as `weight_by`
+#' df <- df %>% mutate(wts = c(.5, .4, .3, .2, .1))
+#'
+#' rep_slice_sample(df, n = 2, reps = 5, weight_by = wts)
 #' @export
 rep_sample_n <- function(tbl, size, replace = FALSE, reps = 1, prob = NULL) {
   check_type(tbl, is.data.frame)
@@ -119,11 +125,18 @@ rep_slice_sample <- function(.data, n = NULL, prop = NULL, replace = FALSE,
     min_val = 0
   )
   check_type(replace, is_truefalse, "TRUE or FALSE")
+  eval_weight_by <- try(rlang::eval_tidy(weight_by), silent = TRUE)
+  if (inherits(eval_weight_by, "try-error")) {
+     weight_by <- rlang::enquo(weight_by)
+     check_cols(.data, weight_by, "permute", FALSE, "weight_by")
+     weight_by <- .data[[rlang::as_name(weight_by)]]
+  }
   check_type(
-    weight_by,
-    ~ is.numeric(.) && (length(.) == nrow(.data)),
-    glue::glue("numeric vector with length `nrow(.data)` = {nrow(.data)}"),
-    allow_null = TRUE
+     weight_by,
+     ~ is.numeric(.) && (length(.) == nrow(.data)),
+     glue::glue("a numeric vector with length `nrow(.data)` = {nrow(.data)} \\
+                 or an unquoted column name"),
+     allow_null = TRUE
   )
   check_type(
     reps,
@@ -150,31 +163,37 @@ rep_slice_sample <- function(.data, n = NULL, prop = NULL, replace = FALSE,
 }
 
 make_replicate_tbl <- function(tbl, size, replace, prob, reps) {
-  # NOTE: this implementation is a way faster alternative to using
-  # `purrr::map_dfr()` + `dplyr::slice_sample()` (or other sampling function)
-
   # Generate row indexes for every future replicate (this way it respects
   # possibility of `replace = FALSE`)
   n <- nrow(tbl)
-  idx_list <- replicate(
-    reps,
-    sample_int(n, size, replace = replace, prob = prob),
-    simplify = FALSE
-  )
+
+  if (!replace) {
+     idx_list <- replicate(
+        reps,
+        sample_int(n, size, replace = FALSE, prob = prob),
+        simplify = FALSE
+     )
+  } else {
+     idx_list <- sample_int(n, size * reps, replace = TRUE, prob = prob)
+     idx_list <- vctrs::vec_chop(idx_list, sizes = rep(size, reps))
+  }
+
   # Get actual sample size which can differ from `size` (currently if it is
   # bigger than number of rows in `tbl` inside `rep_slice_sample()`)
   sample_size <- length(idx_list[[1]])
   i <- unlist(idx_list)
 
-  tbl %>%
-    dplyr::slice(i) %>%
-    dplyr::mutate(replicate = rep(seq_len(reps), each = sample_size)) %>%
-    dplyr::select(replicate, dplyr::everything()) %>%
-    tibble::as_tibble() %>%
-    dplyr::group_by(replicate)
+  res <- vctrs::vec_slice(tbl, i)
+  res <-
+     dplyr::bind_cols(
+        tibble::new_tibble(list(replicate = rep(seq_len(reps), each = sample_size))),
+        res
+     )
+  res <- group_by_replicate(res, reps = reps, n = sample_size)
+  copy_attrs(res, tbl)
 }
 
-notify_extra_size <- function(size, tbl, replace, notify_type) {
+notify_extra_size <- function(size, tbl, replace, notify_type, call = caller_env()) {
   if (!replace && (size > nrow(tbl))) {
     msg <- glue::glue(
       "Asked sample size ({size}) is bigger than ",
@@ -182,8 +201,8 @@ notify_extra_size <- function(size, tbl, replace, notify_type) {
     )
     switch(
       notify_type,
-      sample_n = stop_glue("{msg}. Use `replace = TRUE`."),
-      slice_sample = warning_glue("{msg}. Using number of rows as sample size.")
+      sample_n = abort(glue("{msg}. Use `replace = TRUE`."), call = call),
+      slice_sample = warn(glue("{msg}. Using number of rows as sample size."))
     )
   }
 
@@ -206,7 +225,7 @@ sample_int <- function(n, size, replace = FALSE, prob = NULL) {
   }
 }
 
-make_slice_size <- function(n, prop, n_total) {
+make_slice_size <- function(n, prop, n_total, call = caller_env()) {
   if (is.null(n)) {
     if (is.null(prop)) {
       # By default return size 1
@@ -218,7 +237,8 @@ make_slice_size <- function(n, prop, n_total) {
     if (is.null(prop)) {
       n
     } else {
-      stop_glue("Please supply exactly one of the `n` or `prop` arguments.")
+       abort(paste0("Please supply exactly one of the `n` or `prop` arguments."),
+             call = call)
     }
   }
 }

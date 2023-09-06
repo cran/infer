@@ -103,23 +103,23 @@ generate <- function(x, reps = 1, type = NULL,
 }
 
 # Check that type argument is an implemented type
-sanitize_generation_type <- function(x) {
+sanitize_generation_type <- function(x, call = caller_env()) {
   if (is.null(x)) return(x)
 
-  check_type(x, is.character)
+  check_type(x, is.character, call = call)
 
   if (!x %in% c("bootstrap", "permute", "simulate", "draw")) {
-    stop_glue(
+    abort(paste0(
       'The `type` argument should be one of "bootstrap", "permute", ',
       'or "draw". See `?generate` for more details.'
-    )
+    ), call = call)
   }
 
   if (x == "simulate") {
-    message_glue(
+     inform(paste0(
       'The `"simulate"` generation type has been renamed to `"draw"`. ',
       'Use `type = "draw"` instead to quiet this message.'
-    )
+    ))
   }
 
   x
@@ -136,12 +136,11 @@ compare_type_vs_auto_type <- function(type, auto_type, x) {
         # make sure auto_type vs type difference isn't just an alias
         (any(!c(auto_type, type) %in% c("draw", "simulate"))))
      ) {
-     warning_glue(
-        "You have given `type = \"{type}\"`, but `type` is expected",
-        "to be `\"{auto_type}\"`. This workflow is untested and",
-        "the results may not mean what you think they mean.",
-        .sep = " "
-     )
+     warn(glue(
+        "You have given `type = \"{type}\"`, but `type` is expected ",
+        "to be `\"{auto_type}\"`. This workflow is untested and ",
+        "the results may not mean what you think they mean."
+     ))
   }
 
   type
@@ -160,33 +159,33 @@ has_p_param <- function(x) {
 }
 
 use_auto_type <- function(auto_type) {
-  message_glue('Setting `type = "{auto_type}"` in `generate()`.')
+   inform(glue('Setting `type = "{auto_type}"` in `generate()`.'))
   auto_type
 }
 
-check_permutation_attributes <- function(x, attr) {
-  if (any(!has_attr(x, "response"), !has_attr(x, "explanatory"))) {
-    stop_glue(
-      "Please `specify()` an explanatory and a response variable",
-      "when permuting.",
-      .sep = " "
-    )
+check_permutation_attributes <- function(x, call = caller_env()) {
+  if (any(!has_attr(x, "response"), !has_attr(x, "explanatory")) &&
+      !identical(attr(x, "null"), "paired independence")) {
+     abort(paste0(
+       "Please `specify()` an explanatory and a response variable ",
+       "when permuting."
+     ), call = call)
   }
 }
 
-check_cols <- function(x, variables, type, missing) {
+check_cols <- function(x, variables, type, missing, arg_name = "variables", call = caller_env()) {
   if (!rlang::is_symbolic(rlang::get_expr(variables))) {
-    stop_glue(
-      "The `variables` argument should be one or more unquoted variable names ",
+     abort(glue(
+      "The `{arg_name}` argument should be one or more unquoted variable names ",
       "(not strings in quotation marks)."
-    )
+    ), call = call)
   }
 
   if (!missing && type != "permute") {
-    warning_glue(
-      'The `variables` argument is only relevant for the "permute" ',
+     warn(glue(
+      'The `{arg_name}` argument is only relevant for the "permute" ',
       'generation type and will be ignored.'
-    )
+    ))
 
     should_prompt <- FALSE
   } else {
@@ -203,10 +202,10 @@ check_cols <- function(x, variables, type, missing) {
         c("s", "are")} else {
         c("", "is")}
 
-    stop_glue(
+    abort(glue(
       'The column{plurals[1]} `{list(bad_cols)}` provided to ',
-      'the `variables` argument {plurals[2]} not in the supplied data.'
-    )
+      'the `{arg_name}` argument {plurals[2]} not in the supplied data.'
+    ), call = call)
   }
 }
 
@@ -238,34 +237,48 @@ bootstrap <- function(x, reps = 1, ...) {
 }
 
 #' @importFrom dplyr bind_rows group_by
-permute <- function(x, reps = 1, variables, ...) {
-  df_out <- replicate(reps, permute_once(x, variables), simplify = FALSE) %>%
+permute <- function(x, reps = 1, variables, ..., call = caller_env()) {
+  nrow_x <- nrow(x)
+  df_out <- replicate(reps, permute_once(x, variables, call = call), simplify = FALSE) %>%
     dplyr::bind_rows() %>%
-    dplyr::mutate(replicate = rep(1:reps, each = nrow(!!x))) %>%
-    dplyr::group_by(replicate)
+    dplyr::mutate(replicate = rep(1:reps, each = !!nrow_x)) %>%
+    group_by_replicate(reps, nrow_x)
 
   df_out <- copy_attrs(to = df_out, from = x)
 
   append_infer_class(df_out)
 }
 
-permute_once <- function(x, variables, ...) {
+permute_once <- function(x, variables, ..., call = caller_env()) {
   dots <- list(...)
+  null <- attr(x, "null")
 
-  if (is_hypothesized(x) && (attr(x, "null") == "independence")) {
-    # for each column, determine whether it should be permuted
-    needs_permuting <- colnames(x) %in% process_variables(variables, FALSE)
-
-    # pass each to permute_column with its associated logical
-    out <- purrr::map2_dfc(x, needs_permuting, permute_column)
-
-    copy_attrs(out, x)
-  } else {
-    stop_glue(
-      "Permuting should be done only when doing independence hypothesis test. ",
-      "See `hypothesize()`."
-    )
+  if (!is_hypothesized(x) ||
+      !null %in% c("independence", "paired independence")) {
+     abort(
+        paste0("Permuting should be done only when doing an independence ",
+               "hypothesis test. See `hypothesize()`."),
+        call = call
+     )
   }
+
+  variables <- process_variables(variables, FALSE)
+  if (null == "independence") {
+     # for each column, determine whether it should be permuted
+     needs_permuting <- colnames(x) %in% variables
+
+     # pass each to permute_column with its associated logical
+     out <- purrr::map2(x, needs_permuting, permute_column)
+     out <- tibble::new_tibble(out)
+  } else {
+     out <- x
+     signs <- sample(c(-1, 1), nrow(x), replace = TRUE, prob = c(.5, .5))
+     out[[variables]] <- x[[variables]] * signs
+  }
+
+  copy_attrs(out, x)
+
+  return(out)
 }
 
 process_variables <- function(variables, should_prompt) {
@@ -275,6 +288,7 @@ process_variables <- function(variables, should_prompt) {
   if (length(out) == 1) {
     out <- as.character(out)
   } else {
+    out <- as.list(out)
     out <- purrr::map(out, as.character)
   }
 
@@ -286,11 +300,11 @@ process_variables <- function(variables, should_prompt) {
   interactions <- purrr::map_lgl(out, `%in%`, x = "*")
 
   if (any(interactions) && should_prompt) {
-    message_glue(
+     inform(glue(
       "Message: Please supply only data columns to the `variables` argument. ",
       "Note that any derived effects that depend on these columns will also ",
       "be affected."
-    )
+    ))
   }
 
   out <- out[!interactions]
@@ -312,9 +326,10 @@ permute_column <- function(col, permute) {
 draw <- function(x, reps = 1, ...) {
   fct_levels <- as.character(unique(response_variable(x)))
 
+  probs <- format_params(x)
   col_simmed <- unlist(replicate(
     reps,
-    sample(fct_levels, size = nrow(x), replace = TRUE, prob = format_params(x)),
+    sample(fct_levels, size = nrow(x), replace = TRUE, prob = probs),
     simplify = FALSE
   ))
 
@@ -326,7 +341,7 @@ draw <- function(x, reps = 1, ...) {
 
   rep_tbl <- copy_attrs(to = rep_tbl, from = x)
 
-  rep_tbl <- dplyr::group_by(rep_tbl, replicate)
+  rep_tbl <- group_by_replicate(rep_tbl, reps, nrow(x))
 
   append_infer_class(rep_tbl)
 }

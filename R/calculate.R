@@ -126,7 +126,7 @@ calculate <- function(x,
   append_infer_class(result)
 }
 
-check_if_mlr <- function(x, fn) {
+check_if_mlr <- function(x, fn, call = caller_env()) {
   if (fn == "calculate") {
     suggestion <- paste0("When working with multiple explanatory",
                          " variables, use fit() instead.")
@@ -135,15 +135,15 @@ check_if_mlr <- function(x, fn) {
   }
 
   if (is_mlr(x)) {
-    stop_glue(
+    abort(glue(
       "Multiple explanatory variables are not supported in {fn}(). {suggestion}"
-    )
+    ), call = call)
   }
 }
 
-check_calculate_stat <- function(stat) {
+check_calculate_stat <- function(stat, call = caller_env()) {
 
-  check_type(stat, rlang::is_string)
+  check_type(stat, rlang::is_string, call = call)
 
   # Check for possible `stat` aliases
   alias_match_id <- match(stat, implemented_stats_aliases[["alias"]])
@@ -158,7 +158,7 @@ check_calculate_stat <- function(stat) {
 
 # Raise an error if the user supplies a test statistic that doesn't
 # make sense given the variable and hypothesis specified
-check_input_vs_stat <- function(x, stat) {
+check_input_vs_stat <- function(x, stat, call = caller_env()) {
   response_type <- attr(x, "type_desc_response")
   explanatory_type <- attr(x, "type_desc_explanatory")
 
@@ -168,27 +168,28 @@ check_input_vs_stat <- function(x, stat) {
     unlist()
 
   if (is.null(possible_stats)) {
-    stop_glue(
+    abort(paste0(
       "The infer team has not implemented test statistics for the ",
       "supplied variable types."
-    )
+    ), call = call)
   }
 
   if (!stat %in% possible_stats) {
     if (has_explanatory(x)) {
-      msg_tail <- glue_null(
+      msg_tail <- glue(
         "a {get_stat_type_desc(explanatory_type)} explanatory variable ",
-        "({explanatory_name(x)})."
+        "({explanatory_name(x)}).",
+        .null = "NULL"
       )
     } else {
       msg_tail <- "no explanatory variable."
     }
 
-    stop_glue(
+    abort(glue(
       "{get_stat_desc(stat)} is not well-defined for a ",
       "{get_stat_type_desc(response_type)} response variable ",
       "({response_name(x)}) and ", msg_tail
-    )
+    ), call = call)
   }
 
   if (is_hypothesized(x)) {
@@ -197,10 +198,10 @@ check_input_vs_stat <- function(x, stat) {
                     hypothesis == attr(x, "null"))
 
     if (nrow(stat_nulls) == 0) {
-      stop_glue(
+      abort(glue(
         'The supplied statistic `stat = "{stat}"` is incompatible with the ',
         'supplied hypothesis `null = "{attr(x, "null")}"`.'
-      )
+      ), call = call)
     }
   }
 
@@ -228,13 +229,13 @@ message_on_excessive_null <- function(x, stat = "mean", fn) {
     null_type <- attr(x, "null")
     null_param <- attr(x, "params")
 
-    message_glue(
+    inform(glue(
       "Message: The {null_type} null hypothesis ",
       "{if (null_type == 'point') {paste0('`', names(null_param), ' = ', unname(null_param), '` ')} else {''}}",
       "does not inform calculation of the observed ",
       "{if (fn == 'calculate') {paste0('statistic (', tolower(get_stat_desc(stat)), ') ')} else {'fit '}}",
       "and will be ignored."
-    )
+    ))
   }
 
   x
@@ -250,11 +251,11 @@ warn_on_insufficient_null <- function(x, stat, ...) {
     attr(x, "null") <- "point"
     attr(x, "params") <- assume_null(x, stat)
 
-    warning_glue(
+    warn(glue(
       "{get_stat_desc(stat)} requires a null ",
       "hypothesis to calculate the observed statistic. \nOutput assumes ",
       "the following null value{print_params(x)}."
-    )
+    ))
   }
 
   x
@@ -268,12 +269,15 @@ calc_impl_one_f <- function(f) {
   function(type, x, order, ...) {
     col <- base::setdiff(names(x), "replicate")
 
+    if (!identical(dplyr::group_vars(x), "replicate")) {
+       x <- dplyr::group_by(x, replicate)
+    }
+
     res <- x %>%
-      dplyr::group_by(replicate) %>%
       dplyr::summarize(stat = f(!!(sym(col)), ...))
 
     # calculate SE for confidence intervals
-    if (length(unique(x[["replicate"]])) == 1) {
+    if (!is_generated(x)) {
       sample_sd <- x %>%
         dplyr::summarize(stats::sd(!!(sym(col)))) %>%
         dplyr::pull()
@@ -298,12 +302,16 @@ calc_impl_success_f <- function(f, output_name) {
     col <- base::setdiff(names(x), "replicate")
 
     success <- attr(x, "success")
+
+    if (!identical(dplyr::group_vars(x), "replicate")) {
+       x <- dplyr::group_by(x, replicate)
+    }
+
     res <- x %>%
-      dplyr::group_by(replicate) %>%
       dplyr::summarize(stat = f(!!sym(col), success))
 
     # calculate SE for confidence intervals
-    if (length(unique(x[["replicate"]])) == 1 && output_name == "proportion") {
+    if (!is_generated(x) && output_name == "proportion") {
       prop <- res[["stat"]]
 
       attr(res, "se") <- sqrt((prop * (1 - prop)) / nrow(x))
@@ -366,7 +374,7 @@ calc_impl_diff_f <- function(f, operator) {
       )
 
     # calculate SE for confidence intervals
-    if (length(unique(x[["replicate"]])) == 1 && identical(operator, `-`)) {
+    if (!is_generated(x) && identical(operator, `-`)) {
       sample_sds <- x %>%
         dplyr::group_by(replicate, !!explanatory_expr(x), .drop = FALSE) %>%
         dplyr::summarize(stats::sd(!!response_expr(x))) %>%
@@ -465,7 +473,7 @@ calc_impl.function_of_props <- function(type, x, order, operator, ...) {
     )
 
   # calculate SE for confidence intervals
-  if (length(unique(x[["replicate"]])) == 1) {
+  if (!is_generated(x)) {
     props <- x %>%
       dplyr::group_by(!!explanatory_expr(x), .drop = FALSE) %>%
       dplyr::summarize(prop = mean(!!sym(col) == success, ...)) %>%

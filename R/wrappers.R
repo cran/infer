@@ -45,6 +45,7 @@
 #'
 #' @importFrom rlang f_lhs
 #' @importFrom rlang f_rhs
+#' @importFrom rlang new_formula
 #' @importFrom stats as.formula
 #' @family wrapper functions
 #' @export
@@ -78,9 +79,7 @@ t_test <- function(x, formula,
   if (has_explanatory(x)) {
     order <- check_order(x, order, in_calculate = FALSE, stat = NULL)
     x <- reorder_explanatory(x, order)
-    prelim <- stats::t.test(formula = as.formula(paste0(response_name(x),
-                                                        " ~ ",
-                                                        explanatory_name(x))),
+    prelim <- stats::t.test(formula = new_formula(response_expr(x), explanatory_expr(x)),
                             data = x,
                             alternative = alternative,
                             mu = mu,
@@ -191,9 +190,7 @@ t_stat <- function(x, formula,
   if (has_explanatory(x)) {
     order <- check_order(x, order, in_calculate = FALSE, stat = NULL)
     x <- reorder_explanatory(x, order)
-    prelim <- stats::t.test(formula = as.formula(paste0(response_name(x),
-                                                        " ~ ",
-                                                        explanatory_name(x))),
+    prelim <- stats::t.test(formula = new_formula(response_expr(x), explanatory_expr(x)),
                             data = x,
                             alternative = alternative,
                             mu = mu,
@@ -263,17 +260,17 @@ chisq_test <- function(x, formula, response = NULL,
                        response = response, explanatory = explanatory)
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
+     abort(glue(
       'The response variable of `{response_name(x)}` is not appropriate ',
       "since the response variable is expected to be categorical."
-    )
+    ))
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
+     abort(glue(
       'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
       "since the explanatory variable is expected to be categorical."
-    )
+    ))
   }
 
   x <- x %>%
@@ -340,17 +337,17 @@ chisq_stat <- function(x, formula, response = NULL,
                        response = response, explanatory = explanatory)
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
+     abort(glue(
       'The response variable of `{response_name(x)}` is not appropriate ',
       "since the response variable is expected to be categorical."
-    )
+    ))
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
+     abort(glue(
       'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
       "since the response variable is expected to be categorical."
-    )
+    ))
   }
 
   x <- x %>%
@@ -362,11 +359,12 @@ chisq_stat <- function(x, formula, response = NULL,
     pull()
 }
 
-check_conf_level <- function(conf_level) {
+check_conf_level <- function(conf_level, call = caller_env()) {
   if (
     (!inherits(conf_level, "numeric")) | (conf_level < 0) | (conf_level > 1)
   ) {
-    stop_glue("The `conf_level` argument must be a number between 0 and 1.")
+     abort(paste0("The `conf_level` argument must be a number between 0 and 1."),
+           call = call)
   }
 }
 
@@ -419,6 +417,21 @@ check_conf_level <- function(conf_level) {
 #'   to see this connection.
 #' @param ... Additional arguments for [prop.test()][stats::prop.test()].
 #'
+#' @details
+#' When testing with an explanatory variable with more than two levels, the
+#' `order` argument as used in the package is no longer well-defined. The function
+#' will thus raise a warning and ignore the value if supplied a non-NULL `order`
+#' argument.
+#'
+#' The columns present in the output depend on the output of both [prop.test()]
+#' and [broom::glance.htest()]. See the latter's documentation for column
+#' definitions; columns have been renamed with the following mapping:
+#'
+#' * `chisq_df` = `parameter`
+#' * `p_value` = `p.value`
+#' * `lower_ci` = `conf.low`
+#' * `upper_ci` = `conf.high`
+#'
 #' @examples
 #' # two-sample proportion test for difference in proportions of
 #' # college completion by respondent sex
@@ -465,17 +478,17 @@ prop_test <- function(x, formula,
   correct <- if (z) {FALSE} else if (is.null(correct)) {TRUE} else {correct}
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
-      'The response variable of `{response_name(x)}` is not appropriate\n',
+     abort(glue(
+      'The response variable of `{response_name(x)}` is not appropriate ',
       "since the response variable is expected to be categorical."
-    )
+    ))
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-    stop_glue(
+     abort(glue(
       'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
       "since the explanatory variable is expected to be categorical."
-    )
+    ))
   }
   # match with old "dot" syntax in t.test
   if (alternative %in% c("two-sided", "two_sided", "two sided", "two.sided")) {
@@ -485,11 +498,16 @@ prop_test <- function(x, formula,
   # process "success" arg
   lvls <- levels(factor(response_variable(x)))
 
+  if (length(lvls) > 2) {
+     abort(glue("This test is not defined for response variables \\
+                 with more than 2 levels."))
+  }
+
   if (!is.null(success)) {
     check_type(success, rlang::is_string)
 
     if (!(success %in% lvls)) {
-      stop_glue('{success} is not a valid level of {response_name(x)}.')
+       abort(glue('{success} is not a valid level of {response_name(x)}.'))
     }
 
     lvls <- c(success, lvls[lvls != success])
@@ -499,16 +517,25 @@ prop_test <- function(x, formula,
 
   # two sample
   if (has_explanatory(x)) {
-
-    order <- check_order(x, order, in_calculate = FALSE, stat = NULL)
-
     # make a summary table to supply to prop.test
     sum_table <- x %>%
-      select(response_name(x), explanatory_name(x)) %>%
-      table()
+       select(explanatory_name(x), response_name(x)) %>%
+       table()
 
-    # reorder according to the order and success arguments
-    sum_table <- sum_table[lvls, order]
+    length_exp_levels <- length(levels(explanatory_variable(x)))
+    if (length_exp_levels == 2) {
+       order <- check_order(x, order, in_calculate = FALSE, stat = NULL)
+       # reorder according to the order and success arguments
+       sum_table <- sum_table[order, lvls]
+    } else if (length_exp_levels >= 3 && !is.null(order)) {
+       warn(glue(
+            "The `order` argument will be ignored as it is not well-defined \\
+             for explanatory variables with more than 2 levels. ",
+            "To silence this message, avoid passing the `order` argument."
+       ))
+       # reorder according to the success argument
+       sum_table <- sum_table[, lvls]
+    }
 
     prelim <- stats::prop.test(x = sum_table,
                                alternative = alternative,
@@ -523,10 +550,10 @@ prop_test <- function(x, formula,
       table()
 
     if (is.null(p)) {
-      message_glue(
+      inform(glue(
         "No `p` argument was hypothesized, so the test will ",
         "assume a null hypothesis `p = .5`."
-      )
+      ))
     }
 
     prelim <- stats::prop.test(x = response_tbl,
@@ -572,9 +599,9 @@ prop_test <- function(x, formula,
 }
 
 calculate_z <- function(x, results, success, p, order) {
-  exp <- if (has_explanatory(x)) {explanatory_name(x)} else {"NULL"}
+  exp <- if (has_explanatory(x)) {explanatory_expr(x)} else {NULL}
 
-  form <- as.formula(paste0(response_name(x), " ~ ", exp))
+  form <- new_formula(response_expr(x), exp)
 
   stat <- x %>%
     specify(formula = form, success = success) %>%

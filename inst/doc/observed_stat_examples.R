@@ -105,6 +105,42 @@ null_dist %>%
   get_p_value(obs_stat = x_tilde, direction = "two-sided")
 
 ## -----------------------------------------------------------------------------
+set.seed(1)
+
+gss_paired <- gss %>%
+   mutate(
+      hours_previous = hours + 5 - rpois(nrow(.), 4.8),
+      diff = hours - hours_previous
+   )
+
+gss_paired %>%
+   select(hours, hours_previous, diff)
+
+## -----------------------------------------------------------------------------
+x_tilde <- gss_paired %>%
+  specify(response = diff) %>%
+  calculate(stat = "mean")
+
+## -----------------------------------------------------------------------------
+x_tilde <- gss_paired %>%
+  observe(response = diff, stat = "mean")
+
+## -----------------------------------------------------------------------------
+null_dist <- gss_paired %>%
+  specify(response = diff) %>%
+  hypothesize(null = "paired independence") %>% 
+  generate(reps = 1000, type = "permute") %>% 
+  calculate(stat = "mean")
+
+## -----------------------------------------------------------------------------
+visualize(null_dist) +
+  shade_p_value(obs_stat = x_tilde, direction = "two-sided")
+
+## -----------------------------------------------------------------------------
+null_dist %>%
+  get_p_value(obs_stat = x_tilde, direction = "two-sided")
+
+## -----------------------------------------------------------------------------
 p_hat <- gss %>%
   specify(response = sex, success = "female") %>%
   calculate(stat = "prop")

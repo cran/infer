@@ -1,5 +1,3 @@
-context("utils")
-
 test_that("append_infer_class works", {
   expect_equal(
     class(append_infer_class(structure("a", class = "b"))),
@@ -53,48 +51,20 @@ test_that("is_truefalse works", {
   expect_false(is_truefalse(1L))
 })
 
-test_that("stop_glue handles `NULL`", {
-  expect_error(stop_glue("Hello {null_val}", "!"), "NULL")
-})
-
-test_that("warning_glue handles `NULL`", {
-  expect_warning(warning_glue("Hello {null_val}", "!"), "NULL")
-})
-
-test_that("message_glue handles `NULL`", {
-  expect_message(message_glue("Hello {null_val}", "!"), "NULL")
-})
-
-test_that("glue_null works", {
-  adj <- "quick"
-
-  expect_equal(
-    glue_null(
-      "The {adj} brown {null_val} jumps ", "over the lazy {NULL}."
-    ),
-    "The quick brown NULL jumps over the lazy NULL."
-  )
-
-  expect_equal(
-    glue_null("The {adj}", "brown", .sep = "-"),
-    "The quick-brown"
-  )
-})
-
 test_that("check_type works", {
   x_var <- 1L
 
   expect_silent(check_type(x_var, is.integer))
 
-  expect_error(check_type(x_var, is.character), "x_var.*character.*integer")
-  expect_error(
-    check_type(x_var, is.character, "symbolic"), "x_var.*symbolic.*integer"
+  expect_snapshot(error = TRUE, check_type(x_var, is.character))
+  expect_snapshot(error = TRUE,
+    check_type(x_var, is.character, "symbolic")
   )
 
   x_df <- data.frame(x = TRUE)
   expect_silent(check_type(x_df, is.data.frame))
-  expect_error(
-    check_type(x_df, is.logical), "x_df.*logical.*data\\.frame"
+  expect_snapshot(error = TRUE,
+    check_type(x_df, is.logical)
   )
 })
 
@@ -105,7 +75,7 @@ test_that("check_type allows `NULL`", {
 
 test_that("check_type allows custom name for `x`", {
   input <- "a"
-  expect_error(check_type(input, is.numeric, x_name = "aaa"), "^`aaa`")
+  expect_snapshot(error = TRUE, check_type(input, is.numeric, x_name = "aaa"))
 })
 
 test_that("check_type allows extra arguments for `predicate`", {
@@ -113,14 +83,14 @@ test_that("check_type allows extra arguments for `predicate`", {
     x >= min_val
   }
   expect_silent(check_type(1, is_geq, min_val = 0))
-  expect_error(check_type(1, is_geq, min_val = 2))
+  expect_snapshot(error = TRUE, check_type(1, is_geq, min_val = 2))
 })
 
 test_that("check_type allows formula `predicate`", {
   expect_silent(check_type(1, ~ is.numeric(.) && (. > 0)))
 
   # By default type should be inferred as the whole formula
-  expect_error(check_type("a", ~ is.numeric(.)), "'~is\\.numeric\\(\\.\\)'")
+  expect_snapshot(error = TRUE, check_type("a", ~ is.numeric(.)))
 })
 
 
@@ -134,9 +104,9 @@ test_that("c_dedupl returns input when unnamed", {
   expect_equal(c_dedupl(c(1, 2, 3)), c(1, 2, 3))
 })
 
-test_that("hypothesize errors out when x isn't a dataframe",
-          expect_error(hypothesize(c(1, 2, 3), null = "point"),
-                       "x must be a data.frame or tibble"))
+test_that("hypothesize errors out when x isn't a dataframe", {
+   expect_snapshot(error = TRUE, hypothesize(c(1, 2, 3), null = "point"))
+})
 
 test_that("p_null supplies appropriate params", {
   expect_equal(
@@ -171,4 +141,21 @@ test_that("variables are standardized as expected", {
    expect_true(inherits(gss_std$is_dem,  "factor"))
 
    expect_equal(levels(gss_std$is_dem), c("TRUE", "FALSE"))
+})
+
+test_that("group_by_replicate() helper returns correct results", {
+   reps <- 500
+   nrow_gss <- nrow(gss)
+
+   gss_gen <-
+      gss %>%
+      specify(age ~ college) %>%
+      hypothesize(null = "independence") %>%
+      generate(reps = reps, type = "permute") %>%
+      dplyr::ungroup()
+
+   expect_equal(
+      dplyr::group_by(gss_gen, replicate),
+      group_by_replicate(gss_gen, reps, nrow_gss)
+   )
 })
