@@ -22,10 +22,10 @@
 #'   statistic as a vertical line on the plot.
 #' @param fill A character or hex string specifying the color to shade the
 #'   p-value region. If `NULL`, the function will not shade any area.
-#' @param ... Other arguments passed along to \\{ggplot2\\} functions.
+#' @param ... Other arguments passed along to ggplot2 functions.
 #'   For expert use only.
 #'
-#' @return If added to an existing {infer} visualization, a \\{ggplot2\\}
+#' @return If added to an existing infer visualization, a ggplot2
 #'   object displaying the supplied statistic on top of its corresponding
 #'   distribution. Otherwise, an `infer_layer` list.
 #'
@@ -166,11 +166,11 @@ shade_p_value_term <- function(plot, obs_stat, direction,
 
       res <- c(res, do.call(geom_tail_area, c(list(tail_area, fill), dots)))
     } else {
-       warn(paste0(
-        '`direction` should be one of `"less"`, `"left"`, `"greater"`, ',
-        '`"right"`, `"two-sided"`, `"both"`, `"two_sided"`, `"two sided"`, ',
-        'or `"two.sided"`.'
-      ))
+       cli_warn(
+        '`direction` should be one of `"less"`, `"left"`, `"greater"`, \\
+         `"right"`, `"two-sided"`, `"both"`, `"two_sided"`, `"two sided"`, \\
+         or `"two.sided"`.'
+       )
     }
   }
 
@@ -362,10 +362,10 @@ warn_right_tail_test <- function(direction, stat_name, do_warn = TRUE) {
   if (do_warn && !is.null(direction) &&
       !(direction %in% c("greater", "right")) &&
       (stat_name %in% c("F", "Chi-Square"))) {
-     warn(glue(
-      "{stat_name} usually corresponds to right-tailed tests. ",
-      "Proceed with caution."
-    ))
+     cli_warn(
+      "{stat_name} usually corresponds to right-tailed tests. \\
+       Proceed with caution."
+     )
   }
 
   TRUE

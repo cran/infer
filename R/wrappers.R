@@ -10,12 +10,7 @@
 #' A tidier version of [t.test()][stats::t.test()] for two sample tests.
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
-#' @param formula A formula with the response variable on the left and the
-#'   explanatory on the right.
-#' @param response The variable name in `x` that will serve as the response.
-#'   This is alternative to using the `formula` argument.
-#' @param explanatory The variable name in `x` that will serve as the
-#'   explanatory variable.
+#' @inheritParams specify
 #' @param order A string vector of specifying the order in which the levels of
 #'   the explanatory variable should be ordered for subtraction, where `order =
 #'   c("first", "second")` means `("first" - "second")`.
@@ -118,23 +113,14 @@ t_test <- function(x, formula,
 #' This function has been deprecated in favor of the more general [observe()].
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
-#' @param formula A formula with the response variable on the left and the
-#'   explanatory on the right.
-#' @param response The variable name in `x` that will serve as the response.
-#'   This is alternative to using the `formula` argument.
-#' @param explanatory The variable name in `x` that will serve as the
-#'   explanatory variable.
+#' @inheritParams specify
 #' @param order A string vector of specifying the order in which the levels of
 #'   the explanatory variable should be ordered for subtraction, where `order =
 #'   c("first", "second")` means `("first" - "second")`.
-#' @param alternative Character string giving the direction of the alternative
-#'   hypothesis. Options are `"two-sided"` (default), `"greater"`, or `"less"`.
 #' @param mu A numeric value giving the hypothesized null mean value for a one
 #'   sample test and the hypothesized difference for a two sample test.
-#' @param conf_int A logical value for whether to include the confidence
-#'   interval or not. `TRUE` by default.
-#' @param conf_level A numeric value between 0 and 1. Default value is 0.95.
-#' @param ... Pass in arguments to \\{infer\\} functions.
+#' @inheritParams t_test
+#' @param ... Pass in arguments to infer functions.
 #'
 #' @examples
 #' library(tidyr)
@@ -222,12 +208,7 @@ t_stat <- function(x, formula,
 #' tests and tests of independence.
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
-#' @param formula A formula with the response variable on the left and the
-#'   explanatory on the right.
-#' @param response The variable name in `x` that will serve as the response.
-#'   This is alternative to using the `formula` argument.
-#' @param explanatory The variable name in `x` that will serve as the
-#'   explanatory variable.
+#' @inheritParams specify
 #' @param ... Additional arguments for [chisq.test()][stats::chisq.test()].
 #'
 #' @examples
@@ -260,17 +241,17 @@ chisq_test <- function(x, formula, response = NULL,
                        response = response, explanatory = explanatory)
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The response variable of `{response_name(x)}` is not appropriate ',
-      "since the response variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The response variable of `{response_name(x)}` is not appropriate \\
+       since the response variable is expected to be categorical.'
+     )
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
-      "since the explanatory variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The explanatory variable of `{explanatory_name(x)}` is not appropriate \\
+       since the explanatory variable is expected to be categorical.'
+     )
   }
 
   x <- x %>%
@@ -291,12 +272,7 @@ chisq_test <- function(x, formula, response = NULL,
 #' general [observe()].
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
-#' @param formula A formula with the response variable on the left and the
-#'   explanatory on the right.
-#' @param response The variable name in `x` that will serve as the response.
-#'   This is alternative to using the `formula` argument.
-#' @param explanatory The variable name in `x` that will serve as the
-#'   explanatory variable.
+#' @inheritParams specify
 #' @param ... Additional arguments for [chisq.test()][stats::chisq.test()].
 #'
 #' @examples
@@ -337,17 +313,17 @@ chisq_stat <- function(x, formula, response = NULL,
                        response = response, explanatory = explanatory)
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The response variable of `{response_name(x)}` is not appropriate ',
-      "since the response variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The response variable of `{response_name(x)}` is not appropriate \\
+       since the response variable is expected to be categorical.'
+     )
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
-      "since the response variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The explanatory variable of `{explanatory_name(x)}` is not appropriate \\
+       since the response variable is expected to be categorical.'
+     )
   }
 
   x <- x %>%
@@ -363,8 +339,10 @@ check_conf_level <- function(conf_level, call = caller_env()) {
   if (
     (!inherits(conf_level, "numeric")) | (conf_level < 0) | (conf_level > 1)
   ) {
-     abort(paste0("The `conf_level` argument must be a number between 0 and 1."),
-           call = call)
+     cli_abort(
+       "The `conf_level` argument must be a number between 0 and 1.",
+       call = call
+     )
   }
 }
 
@@ -376,15 +354,7 @@ check_conf_level <- function(conf_level, call = caller_env()) {
 #' proportions.
 #'
 #' @param x A data frame that can be coerced into a [tibble][tibble::tibble].
-#' @param formula A formula with the response variable on the left and the
-#'   explanatory on the right, where an explanatory variable NULL indicates
-#'   a test of a single proportion.
-#' @param response The variable name in `x` that will serve as the response.
-#'   This is alternative to using the `formula` argument. This is an alternative
-#'   to the formula interface.
-#' @param explanatory The variable name in `x` that will serve as the
-#'   explanatory variable. Optional. This is an alternative to the formula
-#'   interface.
+#' @inheritParams specify
 #' @param order A string vector specifying the order in which the proportions
 #'   should be subtracted, where  `order = c("first", "second")` means
 #'   `"first" - "second"`. Ignored for one-sample tests, and optional for two
@@ -395,14 +365,7 @@ check_conf_level <- function(conf_level, call = caller_env()) {
 #'   value, or that two proportions are equal; ignored otherwise.
 #' @param p A numeric vector giving the hypothesized null proportion of
 #' success for each group.
-#' @param conf_int A logical value for whether to report the confidence
-#'   interval or not. `TRUE` by default, ignored if `p` is specified for a
-#'   two-sample test. Only used when testing the null that a single
-#'   proportion equals a given value, or that two proportions are equal;
-#'   ignored otherwise.
-#' @param conf_level A numeric value between 0 and 1. Default value is 0.95.
-#'   Only used when testing the null that a single proportion equals a given
-#'   value, or that two proportions are equal; ignored otherwise.
+#' @inheritParams t_test
 #' @param success The level of `response` that will be considered a success, as
 #'   a string. Only used when testing the null that a single
 #'   proportion equals a given value, or that two proportions are equal;
@@ -478,17 +441,17 @@ prop_test <- function(x, formula,
   correct <- if (z) {FALSE} else if (is.null(correct)) {TRUE} else {correct}
 
   if (!(class(response_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The response variable of `{response_name(x)}` is not appropriate ',
-      "since the response variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The response variable of `{response_name(x)}` is not appropriate \\
+      since the response variable is expected to be categorical.'
+     )
   }
   if (has_explanatory(x) &&
       !(class(explanatory_variable(x)) %in% c("logical", "character", "factor"))) {
-     abort(glue(
-      'The explanatory variable of `{explanatory_name(x)}` is not appropriate ',
-      "since the explanatory variable is expected to be categorical."
-    ))
+     cli_abort(
+      'The explanatory variable of `{explanatory_name(x)}` is not appropriate \\
+       since the explanatory variable is expected to be categorical.'
+     )
   }
   # match with old "dot" syntax in t.test
   if (alternative %in% c("two-sided", "two_sided", "two sided", "two.sided")) {
@@ -499,15 +462,16 @@ prop_test <- function(x, formula,
   lvls <- levels(factor(response_variable(x)))
 
   if (length(lvls) > 2) {
-     abort(glue("This test is not defined for response variables \\
-                 with more than 2 levels."))
+    cli_abort(
+      "This test is not defined for response variables with more than 2 levels."
+    )
   }
 
   if (!is.null(success)) {
     check_type(success, rlang::is_string)
 
     if (!(success %in% lvls)) {
-       abort(glue('{success} is not a valid level of {response_name(x)}.'))
+      cli_abort('{success} is not a valid level of {response_name(x)}.')
     }
 
     lvls <- c(success, lvls[lvls != success])
@@ -528,10 +492,10 @@ prop_test <- function(x, formula,
        # reorder according to the order and success arguments
        sum_table <- sum_table[order, lvls]
     } else if (length_exp_levels >= 3 && !is.null(order)) {
-       warn(glue(
+       cli_warn(c(
             "The `order` argument will be ignored as it is not well-defined \\
              for explanatory variables with more than 2 levels. ",
-            "To silence this message, avoid passing the `order` argument."
+            i = "To silence this message, avoid passing the `order` argument."
        ))
        # reorder according to the success argument
        sum_table <- sum_table[, lvls]
@@ -550,10 +514,10 @@ prop_test <- function(x, formula,
       table()
 
     if (is.null(p)) {
-      inform(glue(
-        "No `p` argument was hypothesized, so the test will ",
-        "assume a null hypothesis `p = .5`."
-      ))
+      cli_inform(
+        "No `p` argument was hypothesized, so the test will \\
+         assume a null hypothesis `p = .5`."
+      )
     }
 
     prelim <- stats::prop.test(x = response_tbl,

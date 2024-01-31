@@ -127,20 +127,20 @@ boot_dist %>%
   visualize() +
   shade_confidence_interval(endpoints = ci)
 
-## ---- message = FALSE, warning = FALSE----------------------------------------
+## ----message = FALSE, warning = FALSE-----------------------------------------
 # calculate an observed t statistic
 obs_t <- gss %>%
   specify(response = hours) %>%
   hypothesize(null = "point", mu = 40) %>%
   calculate(stat = "t")
 
-## ---- message = FALSE, warning = FALSE----------------------------------------
+## ----message = FALSE, warning = FALSE-----------------------------------------
 # switch out calculate with assume to define a distribution
 t_dist <- gss %>%
   specify(response = hours) %>%
   assume(distribution = "t")
 
-## ---- message = FALSE, warning = FALSE----------------------------------------
+## ----message = FALSE, warning = FALSE-----------------------------------------
 # visualize the theoretical null distribution
 visualize(t_dist) +
   shade_p_value(obs_stat = obs_t, direction = "greater")
@@ -148,7 +148,7 @@ visualize(t_dist) +
 # more exactly, calculate the p-value
 get_p_value(t_dist, obs_t, "greater")
 
-## ---- message = FALSE, warning = FALSE----------------------------------------
+## ----message = FALSE, warning = FALSE-----------------------------------------
 # find the theory-based confidence interval
 theor_ci <- 
   get_confidence_interval(

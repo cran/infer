@@ -1,3 +1,15 @@
+# infer v1.0.6
+
+* Updated infrastructure for errors, warnings, and messages (#513). Most of these changes will not be visible to users, though:
+     - Many longer error messages are now broken up into several lines.
+     - For references to help-files, users can now click on the error message's text to navigate to the cited documentation.
+     
+* Various improvements to documentation (#501, #504, #508, #512).
+
+* Fixed bug where `get_confidence_interval()` would error uninformatively when the supplied distribution of estimates contained missing values. The function will now warn and return a confidence interval calculated using the non-missing estimates (#521).
+
+* Fixed bug where `generate()` could not be used without first `specify()`ing variables, even in cases where that specification would not affect resampling/simulation (#448). 
+
 # infer v1.0.5
 
 * Implemented support for permutation hypothesis tests for paired data via the 

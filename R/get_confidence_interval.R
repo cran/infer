@@ -147,7 +147,7 @@ get_confidence_interval <- function(x, level = 0.95, type = NULL,
                                     point_estimate = NULL) {
   # Inform if no `level` was explicitly supplied
   if (!("level" %in% rlang::call_args_names(match.call()))) {
-     inform(glue("Using `level = {level}` to compute confidence interval."))
+     cli_inform("Using `level = {level}` to compute confidence interval.")
   }
 
   if (is.null(type)) {
@@ -227,9 +227,23 @@ switch_ci <- function(type, x, level, point_estimate) {
   )
 }
 
+remove_missing_estimates <- function(estimates) {
+  na_estimates <- is.na(estimates)
+  na_estimates_n <- sum(na_estimates)
+
+  if (na_estimates_n > 0) {
+     cli_warn("{na_estimates_n} estimates were missing and were removed when \\
+               calculating the confidence interval.")
+  }
+
+  estimates[!na_estimates]
+}
+
 ci_percentile <- function(x, level) {
   # x[[ncol(x)]] pulls out the stat or estimate column
-  ci_vec <- stats::quantile(x[[ncol(x)]], probs = (1 + c(-level, level)) / 2)
+  estimates <- remove_missing_estimates(x[[ncol(x)]])
+
+  ci_vec <- stats::quantile(estimates, probs = (1 + c(-level, level)) / 2)
 
   make_ci_df(ci_vec)
 }
@@ -247,7 +261,9 @@ ci_se <- function(x, level, point_estimate) {
     }
   } else {
     # x[[ncol(x)]] pulls out the stat or estimate column
-    se <- stats::sd(x[[ncol(x)]])
+    estimates <- remove_missing_estimates(x[[ncol(x)]])
+    se <- stats::sd(estimates)
+
     qfn <- "qnorm"
   }
 
@@ -269,14 +285,16 @@ ci_bias_corrected <- function(x, level, point_estimate) {
   point_estimate <- check_obs_stat(point_estimate)
 
   # x[[ncol(x)]] pulls out the stat or estimate column
-  p <- mean(x[[ncol(x)]] <= point_estimate)
+  estimates <- remove_missing_estimates(x[[ncol(x)]])
+
+  p <- mean(estimates <= point_estimate)
+
   z0 <- stats::qnorm(p)
   # z_alpha_2 is z_(alpha/2)
   z_alpha_2 <- stats::qnorm((1 + c(-level, level)) / 2)
   new_probs <- stats::pnorm(2 * z0 + z_alpha_2)
 
-  # x[[ncol(x)]] pulls out the stat or estimate column
-  ci_vec <- stats::quantile(x[[ncol(x)]], probs = new_probs)
+  ci_vec <- stats::quantile(estimates, probs = new_probs)
 
   make_ci_df(ci_vec)
 }
@@ -294,58 +312,66 @@ check_ci_args <- function(x, level, type, point_estimate, call = caller_env()) {
   check_type(level, is.numeric, call = call)
 
   if ((level <= 0) || (level >= 1)) {
-     abort(paste0("The value of `level` must be between 0 and 1 non-inclusive."),
-           call = call)
+     cli_abort(
+       "The value of {.arg level} must be between 0 and 1, non-inclusive.",
+       call = call
+     )
   }
 
   if (inherits(x, "infer_dist") && !is.null(type) && type != "se") {
-     abort(paste0(
-      'The only `type` option for theory-based confidence intervals ',
-      'is `type = "se"`.'
-    ), call = call)
+     cli_abort(
+      'The only {.arg type} option for theory-based confidence intervals \\
+       is `type = "se"`.',
+       call = call
+     )
   }
 
   if (!(type %in% c("percentile", "se", "bias-corrected"))) {
-     abort(paste0(
-      'The options for `type` are "percentile", "se", or "bias-corrected".'
-    ), call = call)
+     cli_abort(
+      'The options for `type` are "percentile", "se", or "bias-corrected".',
+      call = call
+     )
   }
 
   if ((type %in% c("se", "bias-corrected")) && is.null(point_estimate)) {
-     abort(paste0(
-      "A numeric value needs to be given for `point_estimate` ",
-      'for `type` "se" or "bias-corrected".'
-    ), call = call)
+     cli_abort(
+      'A numeric value needs to be given for {.arg point_estimate} \\
+       for `type` "se" or "bias-corrected".',
+      call = call
+     )
   }
 
   if (inherits(x, "infer_dist")) {
     # theoretical CIs require the full point estimate infer object as they
     # contain the necessary standard error
     if (!inherits(point_estimate, "infer")) {
-       abort(paste0(
-        'For theoretical confidence intervals, the `point_estimate` argument ',
-        'must be an `infer` object. Have you made sure to supply the output of ',
-        '`calculate()` as the `point_estimate` argument?'
-      ), call = call)
+       cli_abort(
+        'For theoretical confidence intervals, the `point_estimate` argument \\
+         must be an `infer` object. Have you made sure to supply the output of \\
+         {.fun calculate} as the `point_estimate` argument?', call = call)
     }
 
     if (!attr(point_estimate, "stat") %in%
         c("mean", "prop", "diff in means", "diff in props")) {
-       abort(paste0(
-        'The only allowable statistics for theoretical confidence intervals ',
-        'are "mean", "prop", "diff in means", and "diff in props". See ',
-        'the "Details" section of `?get_confidence_interval` for more details.'
-      ), call = call)
+       cli_abort(
+        'The only allowable statistics for theoretical confidence intervals \\
+         are "mean", "prop", "diff in means", and "diff in props". See \\
+         the "Details" section of \\
+         {.help [{.fun get_confidence_interval}](infer::get_confidence_interval)} \\
+         for more details.',
+        call = call
+       )
     }
 
     if ((attr(x, "distribution") == "t" &&
          !attr(point_estimate, "stat") %in% c("mean", "diff in means")) ||
         (attr(x, "distribution") == "norm" &&
          !attr(point_estimate, "stat") %in% c("prop", "diff in props"))) {
-       abort(glue(
-        'Confidence intervals using a `{attr(x, "dist_")}` distribution for ',
-        '`stat = {attr(point_estimate, "stat")}` are not implemented.'
-      ), call = call)
+       cli_abort(
+        'Confidence intervals using a `{attr(x, "dist_")}` distribution for \\
+         `stat = {attr(point_estimate, "stat")}` are not implemented.',
+        call = call
+       )
     }
   }
 }

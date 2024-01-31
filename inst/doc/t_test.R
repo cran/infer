@@ -60,7 +60,7 @@ observed_statistic <- gss %>%
   dplyr::pull()
 
 ## -----------------------------------------------------------------------------
-pt(observed_statistic, df = nrow(gss) - 1, lower.tail = FALSE)*2
+pt(unname(observed_statistic), df = nrow(gss) - 1, lower.tail = FALSE)*2
 
 ## ----plot-2-sample, echo = FALSE----------------------------------------------
 gss %>%
@@ -119,5 +119,5 @@ observed_statistic <- gss %>%
 observed_statistic
 
 ## -----------------------------------------------------------------------------
-pt(observed_statistic, df = nrow(gss) - 2, lower.tail = FALSE)*2
+pt(unname(observed_statistic), df = nrow(gss) - 2, lower.tail = FALSE)*2
 

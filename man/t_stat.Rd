@@ -21,13 +21,14 @@ t_stat(
 \item{x}{A data frame that can be coerced into a \link[tibble:tibble]{tibble}.}
 
 \item{formula}{A formula with the response variable on the left and the
-explanatory on the right.}
+explanatory on the right. Alternatively, a \code{response} and \code{explanatory}
+argument can be supplied.}
 
 \item{response}{The variable name in \code{x} that will serve as the response.
-This is alternative to using the \code{formula} argument.}
+This is an alternative to using the \code{formula} argument.}
 
 \item{explanatory}{The variable name in \code{x} that will serve as the
-explanatory variable.}
+explanatory variable. This is an alternative to using the formula argument.}
 
 \item{order}{A string vector of specifying the order in which the levels of
 the explanatory variable should be ordered for subtraction, where \code{order = c("first", "second")} means \code{("first" - "second")}.}
@@ -43,7 +44,7 @@ interval or not. \code{TRUE} by default.}
 
 \item{conf_level}{A numeric value between 0 and 1. Default value is 0.95.}
 
-\item{...}{Pass in arguments to \\{infer\\} functions.}
+\item{...}{Pass in arguments to infer functions.}
 }
 \description{
 A shortcut wrapper function to get the observed test statistic for a t test.

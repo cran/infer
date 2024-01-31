@@ -983,28 +983,20 @@ obs_fit <- gss %>%
   fit()
 
 ## -----------------------------------------------------------------------------
-null_dist <- gss %>%
+boot_dist <- gss %>%
   specify(hours ~ age + college) %>%
-  hypothesize(null = "independence") %>%
-  generate(reps = 1000, type = "permute") %>%
-  fit()
-
-## -----------------------------------------------------------------------------
-null_dist2 <- gss %>%
-  specify(hours ~ age + college) %>%
-  hypothesize(null = "independence") %>%
-  generate(reps = 1000, type = "permute", variables = c(age, college)) %>%
+  generate(reps = 1000, type = "bootstrap") %>%
   fit()
 
 ## -----------------------------------------------------------------------------
 conf_ints <- 
   get_confidence_interval(
-    null_dist, 
+    boot_dist, 
     level = .95, 
     point_estimate = obs_fit
   )
 
 ## -----------------------------------------------------------------------------
-visualize(null_dist) +
+visualize(boot_dist) +
   shade_confidence_interval(endpoints = conf_ints)
 
