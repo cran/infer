@@ -1,3 +1,13 @@
+# infer 1.0.7
+
+* The aliases `p_value()` and `conf_int()`, first deprecated 6 years ago, now
+  return an error (#530).
+  
+* Addresses ggplot2 warnings when shading p-values for test statistics
+  that are outside of the range of the generated distribution (#528).
+
+* Fixed bug in `shade_p_value()` and `shade_confidence_interval()` where `fill = NULL` was ignored when it was documented as preventing any shading (#525).
+
 # infer v1.0.6
 
 * Updated infrastructure for errors, warnings, and messages (#513). Most of these changes will not be visible to users, though:
