@@ -208,15 +208,18 @@ d_hat <- gss %>%
   calculate(stat = "diff in props", order = c("female", "male"))
 
 ## -----------------------------------------------------------------------------
-d_hat <- gss %>% 
-  observe(college ~ sex, success = "no degree", 
-          stat = "diff in props", order = c("female", "male"))
+d_hat <- gss %>%
+  observe(
+    college ~ sex,
+    success = "no degree",
+    stat = "diff in props", order = c("female", "male")
+  )
 
 ## -----------------------------------------------------------------------------
 null_dist <- gss %>%
   specify(college ~ sex, success = "no degree") %>%
-  hypothesize(null = "independence") %>% 
-  generate(reps = 1000) %>% 
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000) %>%
   calculate(stat = "diff in props", order = c("female", "male"))
 
 ## -----------------------------------------------------------------------------
@@ -319,37 +322,49 @@ prop_test(gss,
 ## -----------------------------------------------------------------------------
 Chisq_hat <- gss %>%
   specify(response = finrela) %>%
-  hypothesize(null = "point",
-              p = c("far below average" = 1/6,
-                    "below average" = 1/6,
-                    "average" = 1/6,
-                    "above average" = 1/6,
-                    "far above average" = 1/6,
-                    "DK" = 1/6)) %>%
+  hypothesize(
+    null = "point",
+    p = c(
+      "far below average" = 1 / 6,
+      "below average" = 1 / 6,
+      "average" = 1 / 6,
+      "above average" = 1 / 6,
+      "far above average" = 1 / 6,
+      "DK" = 1 / 6
+    )
+  ) %>%
   calculate(stat = "Chisq")
 
 ## -----------------------------------------------------------------------------
 Chisq_hat <- gss %>%
-  observe(response = finrela,
-          null = "point",
-          p = c("far below average" = 1/6,
-                "below average" = 1/6,
-                "average" = 1/6,
-                "above average" = 1/6,
-                "far above average" = 1/6,
-                "DK" = 1/6),
-          stat = "Chisq")
+  observe(
+    response = finrela,
+    null = "point",
+    p = c(
+      "far below average" = 1 / 6,
+      "below average" = 1 / 6,
+      "average" = 1 / 6,
+      "above average" = 1 / 6,
+      "far above average" = 1 / 6,
+      "DK" = 1 / 6
+    ),
+    stat = "Chisq"
+  )
 
 ## -----------------------------------------------------------------------------
 null_dist <- gss %>%
   specify(response = finrela) %>%
-  hypothesize(null = "point",
-              p = c("far below average" = 1/6,
-                    "below average" = 1/6,
-                    "average" = 1/6,
-                    "above average" = 1/6,
-                    "far above average" = 1/6,
-                    "DK" = 1/6)) %>%
+  hypothesize(
+    null = "point",
+    p = c(
+      "far below average" = 1 / 6,
+      "below average" = 1 / 6,
+      "average" = 1 / 6,
+      "above average" = 1 / 6,
+      "far above average" = 1 / 6,
+      "DK" = 1 / 6
+    )
+  ) %>%
   generate(reps = 1000, type = "draw") %>%
   calculate(stat = "Chisq")
 
@@ -375,14 +390,18 @@ null_dist %>%
   get_p_value(obs_stat = Chisq_hat, direction = "greater")
 
 ## -----------------------------------------------------------------------------
-chisq_test(gss, 
-           response = finrela,
-           p = c("far below average" = 1/6,
-                 "below average" = 1/6,
-                 "average" = 1/6,
-                 "above average" = 1/6,
-                 "far above average" = 1/6,
-                 "DK" = 1/6))
+chisq_test(
+  gss,
+  response = finrela,
+  p = c(
+    "far below average" = 1 / 6,
+    "below average" = 1 / 6,
+    "average" = 1 / 6,
+    "above average" = 1 / 6,
+    "far above average" = 1 / 6,
+    "DK" = 1 / 6
+  )
+)
 
 ## -----------------------------------------------------------------------------
 Chisq_hat <- gss %>%

@@ -28,8 +28,10 @@ gss_paired %>%
   ggplot2::ggplot() +
   ggplot2::aes(x = diff) +
   ggplot2::geom_histogram(bins = diff(range(unique_diff))) +
-  ggplot2::labs(x = "diff: Difference in Number of Hours Worked",
-                y = "Number of Responses") +
+  ggplot2::labs(
+    x = "diff: Difference in Number of Hours Worked",
+    y = "Number of Responses"
+  ) +
   ggplot2::scale_x_continuous(breaks = c(range(unique_diff), 0))
 
 ## ----calc-obs-mean------------------------------------------------------------

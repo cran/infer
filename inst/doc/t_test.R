@@ -15,8 +15,10 @@ gss %>%
   ggplot2::ggplot() +
   ggplot2::aes(x = hours) +
   ggplot2::geom_histogram(bins = 20) +
-  ggplot2::labs(x = "hours: Number of Hours Worked",
-                y = "Number of Responses") +
+  ggplot2::labs(
+    x = "hours: Number of Hours Worked",
+    y = "Number of Responses"
+  ) +
   ggplot2::scale_x_continuous(breaks = seq(0, 90, 10))
 
 ## ----calc-obs-stat-1-sample, warning = FALSE, message = FALSE-----------------
@@ -36,9 +38,10 @@ null_dist_1_sample <- gss %>%
 ## ----visualize-1-sample, warning = FALSE, message = FALSE---------------------
 # visualize the null distribution and test statistic!
 null_dist_1_sample %>%
-  visualize() + 
+  visualize() +
   shade_p_value(observed_statistic,
-                direction = "two-sided")
+    direction = "two-sided"
+  )
 
 ## ----p-value-1-sample, warning = FALSE, message = FALSE-----------------------
 # calculate the p value from the test statistic and null distribution

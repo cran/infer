@@ -114,11 +114,13 @@ boot_dist <- gss %>%
 # start with the bootstrap distribution
 ci <- boot_dist %>%
   # calculate the confidence interval around the point estimate
-  get_confidence_interval(point_estimate = obs_mean,
-                          # at the 95% confidence level
-                          level = .95,
-                          # using the standard error
-                          type = "se")
+  get_confidence_interval(
+    point_estimate = obs_mean,
+    # at the 95% confidence level
+    level = .95,
+    # using the standard error
+    type = "se"
+  )
 
 ci
 
